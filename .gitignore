@@ -42,6 +42,7 @@ models/
 *.bin
 *.pt
 *.onnx
+*.onnx.json
 *.gguf
 
 # Audio captures (dev)

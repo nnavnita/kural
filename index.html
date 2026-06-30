@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>kural — open-source voice AI agent framework</title>
-<meta name="description" content="Open-source voice AI agent framework. Phone agents with the LLM, speech, and telephony providers of your choice. Bring your own keys. Self-hostable.">
+<meta name="description" content="Open-source voice AI agent framework. v0.1 local STT → LLM → TTS pipeline works today. Bring your own keys. Self-hostable.">
 <meta property="og:title" content="kural">
-<meta property="og:description" content="Open-source voice AI agent framework. Bring your own keys. Self-hostable.">
+<meta property="og:description" content="Open-source voice AI agent framework. v0.1 local voice pipeline works today. Bring your own keys. Self-hostable.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://nnavnita.github.io/kural/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='62%' text-anchor='middle' font-family='Noto Sans Tamil, Latha, sans-serif' font-size='80' fill='%23e94560'>கு</text></svg>">
@@ -305,7 +305,7 @@
   <span class="glyph" lang="ta">கு</span>
   <div class="status-row">
     <span class="dot"></span>
-    <span>v0 — local echo agent works. Phone integration coming.</span>
+    <span>v0.1 — local voice agent (STT → LLM → TTS) works. Phone integration coming.</span>
   </div>
   <h1>kural</h1>
   <p class="tagline">Open-source voice AI agent framework.</p>
@@ -325,7 +325,7 @@
     </div>
     <div class="pillar">
       <h3>Free path exists</h3>
-      <p>OpenRouter free models + local Whisper + local Kokoro TTS + a $1/month Twilio number. Production voice agent for call minutes only.</p>
+      <p>OpenRouter free models + local Whisper + local Piper TTS + a $1/month Twilio number. Production voice agent for call minutes only.</p>
     </div>
     <div class="pillar">
       <h3>Self-hostable</h3>
@@ -339,8 +339,30 @@
 </section>
 
 <section id="how">
-  <h2>How it works</h2>
-  <p style="color: var(--muted); margin-bottom: 20px;">A caller's audio flows through a Pipecat pipeline. Each stage is a frame processor you can swap or remove.</p>
+  <h2>How it works today</h2>
+  <p style="color: var(--muted); margin-bottom: 20px;">kural ships two pipelines, switchable via <code>KURAL_MODE</code>. <strong>voice</strong> is the v0.1 cascade; <strong>echo</strong> is a transport smoke test.</p>
+  <div class="arch">Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Piper TTS ─▶ output ─▶ Speakers
+                                       (Silero VAD)                          │
+                                                                              ▼
+                                                              assistant_aggregator</div>
+  <p style="color: var(--muted); margin-top: 14px; font-size: 0.92rem;">Silero VAD decides when the caller stopped speaking. The LLM call uses an OpenAI-compatible endpoint, so any provider (OpenAI, OpenRouter, Ollama, vLLM, …) drops in via env vars.</p>
+
+  <h2 style="margin-top: 40px;">Latency budget (voice mode)</h2>
+  <p style="color: var(--muted); margin-bottom: 16px;">Target on a recent Apple Silicon laptop, all local: <strong>&lt; 2 s</strong> end-to-end (caller stops speaking → first audio of reply).</p>
+  <table class="stack">
+    <thead>
+      <tr><th>Stage</th><th>Budget</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>VAD endpointing</td><td class="muted">~250 ms</td><td class="muted">Silero start/stop windows</td></tr>
+      <tr><td>STT (Whisper distil-medium.en)</td><td class="muted">~400 ms</td><td class="muted">Per utterance, batched</td></tr>
+      <tr><td>LLM (small local model)</td><td class="muted">~800 ms</td><td class="muted">First-token latency dominates</td></tr>
+      <tr><td>TTS (Piper)</td><td class="muted">~400 ms</td><td class="muted">First audio chunk</td></tr>
+      <tr><td>Audio I/O + scheduling</td><td class="muted">~150 ms</td><td class="muted">Buffering, sample-rate conversion</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 40px;">Target architecture</h2>
   <div class="arch">Caller → Twilio (PSTN/SIP) → Media stream
                               ↓
                           [VAD] Silero
@@ -349,7 +371,7 @@
                               ↓
                           [LLM] OpenAI-compatible (any provider)
                               ↓
-                          [TTS] Kokoro / Piper / ElevenLabs
+                          [TTS] Piper / Kokoro / ElevenLabs
                               ↓
                           Audio back to caller</div>
 
@@ -361,7 +383,7 @@
     <tbody>
       <tr><td>LLM</td><td class="muted">Ollama, vLLM, OpenRouter free tier</td><td class="muted">OpenAI, Anthropic (via OpenRouter), Groq, Together</td></tr>
       <tr><td>STT</td><td class="muted">faster-whisper, Distil-Whisper</td><td class="muted">Deepgram, AssemblyAI</td></tr>
-      <tr><td>TTS</td><td class="muted">Kokoro, Piper</td><td class="muted">ElevenLabs, Cartesia</td></tr>
+      <tr><td>TTS</td><td class="muted">Piper, Kokoro</td><td class="muted">ElevenLabs, Cartesia</td></tr>
       <tr><td>Phone</td><td class="muted">—</td><td class="muted">Twilio (required for PSTN)</td></tr>
     </tbody>
   </table>
@@ -369,7 +391,7 @@
 
 <section id="quickstart">
   <h2>Quickstart</h2>
-  <p style="color: var(--muted); margin-bottom: 16px;">Today, the v0 echo agent runs locally — speak into the mic, hear yourself back. No API keys needed.</p>
+  <p style="color: var(--muted); margin-bottom: 16px;">Install once:</p>
 <pre class="codeblock"><span class="c"># macOS:   brew install portaudio</span>
 <span class="c"># Ubuntu:  sudo apt-get install -y portaudio19-dev</span>
 
@@ -377,18 +399,53 @@ git clone https://github.com/nnavnita/kural
 cd kural
 cp .env.example .env
 python -m venv .venv &amp;&amp; source .venv/bin/activate
-pip install -e .
+pip install -e .</pre>
 
-kural   <span class="c"># or: python -m kural.server</span></pre>
-  <p style="color: var(--muted); margin-top: 16px; font-size: 0.9rem;">Wear headphones to avoid feedback. Stop with <code>Ctrl+C</code>.</p>
+  <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Voice mode (default) — full STT → LLM → TTS</h3>
+  <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.95rem;">Cheapest local path: a small model via Ollama.</p>
+<pre class="codeblock"><span class="c"># 1. Pull a small model once</span>
+ollama pull llama3.1:8b
+ollama serve
+
+<span class="c"># 2. Point kural at it (or edit .env)</span>
+export KURAL_LLM_BASE_URL=http://localhost:11434/v1
+export KURAL_LLM_API_KEY=ollama          <span class="c"># ignored by Ollama; any string</span>
+export KURAL_LLM_MODEL=llama3.1:8b
+
+kural                                    <span class="c"># or: python -m kural.server</span></pre>
+  <p style="color: var(--muted); margin-top: 12px; font-size: 0.9rem;">Whisper and Piper auto-download weights on first run (~1 GB total). Wear headphones, speak, hear the reply.</p>
+
+  <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Echo mode — transport smoke test, no API keys</h3>
+<pre class="codeblock">KURAL_MODE=echo kural</pre>
+
+  <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Configuration</h3>
+  <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.95rem;"><code>Settings.from_env</code> reads:</p>
+  <table class="stack">
+    <thead>
+      <tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>KURAL_MODE</code></td><td class="muted">voice</td><td class="muted">voice (STT→LLM→TTS) or echo (passthrough)</td></tr>
+      <tr><td><code>KURAL_SAMPLE_RATE</code></td><td class="muted">16000</td><td class="muted">Audio input rate; 16 kHz matches Whisper/Silero</td></tr>
+      <tr><td><code>KURAL_OUTPUT_SAMPLE_RATE</code></td><td class="muted">24000</td><td class="muted">Audio output rate; higher for smoother TTS playback</td></tr>
+      <tr><td><code>KURAL_LLM_BASE_URL</code></td><td class="muted">OpenAI default</td><td class="muted">OpenAI-compatible endpoint (Ollama, OpenRouter, vLLM, …)</td></tr>
+      <tr><td><code>KURAL_LLM_API_KEY</code></td><td class="muted">unset</td><td class="muted">API key for the LLM endpoint</td></tr>
+      <tr><td><code>KURAL_LLM_MODEL</code></td><td class="muted">gpt-4o-mini</td><td class="muted">Model identifier passed to the provider</td></tr>
+      <tr><td><code>KURAL_STT_MODEL</code></td><td class="muted">distil-medium.en</td><td class="muted">faster-whisper model id</td></tr>
+      <tr><td><code>KURAL_TTS_VOICE</code></td><td class="muted">en_US-amy-medium</td><td class="muted">Piper voice id</td></tr>
+      <tr><td><code>KURAL_AGENT_PROMPT</code></td><td class="muted">built-in</td><td class="muted">System prompt seeded into the LLM context</td></tr>
+      <tr><td><code>KURAL_LOG_LEVEL</code></td><td class="muted">INFO</td><td class="muted">loguru level</td></tr>
+    </tbody>
+  </table>
+  <p style="color: var(--muted); margin-top: 16px; font-size: 0.9rem;">Stop the agent with <code>Ctrl+C</code>. See <a href="https://github.com/nnavnita/kural/blob/main/.env.example"><code>.env.example</code></a> for the full list, including placeholders for upcoming Twilio integration.</p>
 </section>
 
 <section id="roadmap">
   <h2>Roadmap</h2>
   <ul class="roadmap">
     <li><span class="badge done">Done</span> <span><strong>v0</strong> — Local echo agent (mic → speaker passthrough)</span></li>
-    <li><span class="badge todo">Next</span> <span><strong>v0.1</strong> — STT → LLM → TTS pipeline with one provider per layer</span></li>
-    <li><span class="badge todo">Planned</span> <span><strong>v0.2</strong> — Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)</span></li>
+    <li><span class="badge done">Done</span> <span><strong>v0.1</strong> — STT → LLM → TTS pipeline with one provider per layer</span></li>
+    <li><span class="badge todo">Next</span> <span><strong>v0.2</strong> — Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v0.3</strong> — Twilio telephony integration</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v0.4</strong> — Configurable agent personas (system prompt, tools)</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v1.0</strong> — Production-ready, documented, examples</span></li>
