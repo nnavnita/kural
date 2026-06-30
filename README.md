@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](#quality-gates)
 
+**Site:** [nnavnita.github.io/kural](https://nnavnita.github.io/kural)
+
 Open-source voice AI agent framework. Build phone agents with the LLM,
 speech, and telephony providers of your choice — bring your own keys, run
 for the cost of a phone number.
