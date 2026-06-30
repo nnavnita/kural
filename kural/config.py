@@ -8,8 +8,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Literal
 
 from dotenv import load_dotenv
+
+AgentMode = Literal["echo", "voice"]
+
+_DEFAULT_AGENT_PROMPT = (
+    "You are kural, a concise and friendly voice assistant. "
+    "Keep replies under two short sentences so they can be spoken quickly."
+)
 
 
 @dataclass(frozen=True)
@@ -17,13 +25,31 @@ class Settings:
     """Immutable container for the values the runtime needs.
 
     Attributes:
+        mode: Which pipeline to run — ``"echo"`` (v0 passthrough) or
+            ``"voice"`` (v0.1 STT → LLM → TTS loop).
         sample_rate: Sample rate (Hz) used by the local audio transport.
             16 kHz is the Pipecat default and matches Whisper/Silero.
         log_level: loguru log level (``DEBUG``, ``INFO``, ``WARNING``, ...).
+        llm_base_url: OpenAI-compatible LLM endpoint. ``None`` selects
+            the OpenAI default. Point at OpenRouter, Ollama, vLLM, etc.
+            for self-hosted or alternate providers.
+        llm_api_key: API key for the LLM endpoint. May be ``None`` for
+            local providers (Ollama, vLLM) that ignore auth.
+        llm_model: Model identifier passed to the LLM provider.
+        stt_model: faster-whisper model identifier.
+        tts_voice: Kokoro voice identifier.
+        agent_prompt: System prompt seeded into the LLM context.
     """
 
+    mode: AgentMode
     sample_rate: int
     log_level: str
+    llm_base_url: str | None
+    llm_api_key: str | None
+    llm_model: str
+    stt_model: str
+    tts_voice: str
+    agent_prompt: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -31,11 +57,34 @@ class Settings:
 
         Loads ``.env`` if present. Recognised variables:
 
+        - ``KURAL_MODE`` (``echo``|``voice``, default ``voice``)
         - ``KURAL_SAMPLE_RATE`` (int, default ``16000``)
         - ``KURAL_LOG_LEVEL`` (str, default ``INFO``; upper-cased)
+        - ``KURAL_LLM_BASE_URL`` (str, optional)
+        - ``KURAL_LLM_API_KEY`` (str, optional)
+        - ``KURAL_LLM_MODEL`` (str, default ``gpt-4o-mini``)
+        - ``KURAL_STT_MODEL`` (str, default ``distil-medium.en``)
+        - ``KURAL_TTS_VOICE`` (str, default ``af_sky``)
+        - ``KURAL_AGENT_PROMPT`` (str, default friendly assistant prompt)
         """
         load_dotenv()
         return cls(
+            mode=_parse_mode(os.getenv("KURAL_MODE", "voice")),
             sample_rate=int(os.getenv("KURAL_SAMPLE_RATE", "16000")),
             log_level=os.getenv("KURAL_LOG_LEVEL", "INFO").upper(),
+            llm_base_url=os.getenv("KURAL_LLM_BASE_URL") or None,
+            llm_api_key=os.getenv("KURAL_LLM_API_KEY") or None,
+            llm_model=os.getenv("KURAL_LLM_MODEL", "gpt-4o-mini"),
+            stt_model=os.getenv("KURAL_STT_MODEL", "distil-medium.en"),
+            tts_voice=os.getenv("KURAL_TTS_VOICE", "af_sky"),
+            agent_prompt=os.getenv("KURAL_AGENT_PROMPT", _DEFAULT_AGENT_PROMPT),
         )
+
+
+def _parse_mode(raw: str) -> AgentMode:
+    value = raw.strip().lower()
+    if value not in {"echo", "voice"}:
+        raise ValueError(
+            f"KURAL_MODE must be 'echo' or 'voice', got {raw!r}",
+        )
+    return value  # type: ignore[return-value]

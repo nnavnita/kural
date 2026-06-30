@@ -11,8 +11,9 @@ Open-source voice AI agent framework. Build phone agents with the LLM,
 speech, and telephony providers of your choice — bring your own keys, run
 for the cost of a phone number.
 
-> **Status:** Early development. v0 echo agent works locally. Star/watch
-> to follow progress.
+> **Status:** Early development. v0.1 voice agent (STT → LLM → TTS)
+> works locally; echo agent still available for transport smoke tests.
+> Star/watch to follow progress.
 
 ## Why kural
 
@@ -49,23 +50,34 @@ Caller → Twilio (PSTN/SIP) → Media stream
 Built on [Pipecat](https://github.com/pipecat-ai/pipecat) — every stage
 is a swappable frame processor.
 
-## How v0 works
+## How it works today
 
-Today, kural ships a single end-to-end pipeline: the **echo agent**. It
-proves the loop from mic capture to speaker playback works without any
-external services.
+kural ships two pipelines, switchable via `KURAL_MODE`:
+
+**`voice` (default)** — the v0.1 cascade:
 
 ```
-Mic ─▶ LocalAudioTransport.input ─▶ EchoProcessor ─▶ LocalAudioTransport.output ─▶ Speakers
-                (InputAudioRawFrame)            (OutputAudioRawFrame)
+Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Kokoro TTS ─▶ output ─▶ Speakers
+                                       (Silero VAD)                          │
+                                                                              ▼
+                                                              assistant_aggregator
 ```
 
-Pipecat distinguishes captured audio (`InputAudioRawFrame`) from playback
-audio (`OutputAudioRawFrame`) by type even though the payload is the
-same bytes. `EchoProcessor` (`kural/processors/echo.py`) rewraps every
-input frame as an output frame; every other frame passes through
-unchanged. This is the only custom logic in v0 — everything else is a
-direct use of Pipecat's `LocalAudioTransport` and `WorkerRunner`.
+Silero VAD lives inside the user aggregator and decides when the caller
+has stopped speaking; the LLM uses an OpenAI-compatible endpoint, so any
+provider (OpenAI, OpenRouter, Ollama, vLLM, …) drops in via env vars.
+
+**`echo`** — the v0 passthrough used as a transport smoke test:
+
+```
+Mic ─▶ input ─▶ EchoProcessor ─▶ output ─▶ Speakers
+                (InputAudioRawFrame → OutputAudioRawFrame)
+```
+
+`EchoProcessor` (`kural/processors/echo.py`) rewraps every input frame
+as an output frame so the same bytes can flow to the speaker sink. This
+is the only custom logic in echo mode — everything else is a direct use
+of Pipecat's `LocalAudioTransport` and `WorkerRunner`.
 
 Module map:
 
@@ -73,8 +85,27 @@ Module map:
 |------|---------|
 | `kural/config.py` | `Settings` dataclass, loaded from env / `.env` |
 | `kural/processors/echo.py` | `EchoProcessor` frame translator |
-| `kural/pipeline.py` | `build_local_transport`, `build_echo_pipeline` |
-| `kural/server.py` | `run_echo`, CLI entry (`main`) |
+| `kural/services.py` | STT / LLM / TTS service factories |
+| `kural/pipeline.py` | `build_local_transport`, `build_echo_pipeline`, `build_voice_pipeline` |
+| `kural/server.py` | `run`, `select_pipeline`, CLI entry (`main`) |
+
+### Latency budget (voice mode)
+
+Target on a recent Apple Silicon laptop, all local: **< 2 s** end-to-end
+round trip (caller stops speaking → first audio of reply heard).
+Rough budget:
+
+| Stage | Budget | Notes |
+|-------|--------|-------|
+| VAD endpointing | ~250 ms | Silero start/stop windows |
+| STT (Whisper distil-medium.en) | ~400 ms | Per utterance, batched |
+| LLM (small local model) | ~800 ms | First-token latency dominates |
+| TTS (Kokoro) | ~400 ms | First audio chunk |
+| Audio I/O + scheduling | ~150 ms | Buffering, sample-rate conversion |
+
+Swapping the LLM to a hosted provider (OpenAI, Groq) usually shaves
+hundreds of milliseconds off the LLM stage. Cloud STT (Deepgram) reduces
+STT latency at the cost of bringing your own keys.
 
 ## Provider matrix (future milestones)
 
@@ -98,15 +129,34 @@ sudo apt-get install -y portaudio19-dev
 
 git clone https://github.com/nnavnita/kural
 cd kural
-cp .env.example .env            # v0 needs no API keys
+cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
-
-kural                           # or: python -m kural.server
 ```
 
-Wear headphones to avoid a feedback loop, then speak — you should hear
-yourself back. Stop with `Ctrl+C`.
+Voice mode (the default) needs an LLM endpoint. The cheapest local path:
+
+```bash
+# 1. Run a small model locally with Ollama (one-time):
+ollama pull llama3.1:8b
+ollama serve
+
+# 2. Point kural at it:
+export KURAL_LLM_BASE_URL=http://localhost:11434/v1
+export KURAL_LLM_API_KEY=ollama        # ignored by Ollama; any string
+export KURAL_LLM_MODEL=llama3.1:8b
+
+kural                                  # or: python -m kural.server
+```
+
+Whisper and Kokoro auto-download model weights on first run (~1 GB
+total). Wear headphones, speak, hear the reply. Stop with `Ctrl+C`.
+
+To run the v0 echo agent (no API keys, no model downloads):
+
+```bash
+KURAL_MODE=echo kural
+```
 
 ### Configuration
 
@@ -114,10 +164,17 @@ yourself back. Stop with `Ctrl+C`.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `KURAL_SAMPLE_RATE` | `16000` | Audio sample rate (Hz). 16 kHz matches Whisper/Silero. |
-| `KURAL_LOG_LEVEL`   | `INFO`  | loguru level (`DEBUG`, `INFO`, `WARNING`, ...). |
+| `KURAL_MODE`         | `voice`            | `voice` (STT→LLM→TTS) or `echo` (mic passthrough). |
+| `KURAL_SAMPLE_RATE`  | `16000`            | Audio sample rate (Hz). 16 kHz matches Whisper/Silero. |
+| `KURAL_LOG_LEVEL`    | `INFO`             | loguru level (`DEBUG`, `INFO`, `WARNING`, ...). |
+| `KURAL_LLM_BASE_URL` | _(OpenAI default)_ | OpenAI-compatible LLM endpoint (Ollama, OpenRouter, vLLM, …). |
+| `KURAL_LLM_API_KEY`  | _(unset)_          | API key for the LLM endpoint. |
+| `KURAL_LLM_MODEL`    | `gpt-4o-mini`      | Model identifier passed to the provider. |
+| `KURAL_STT_MODEL`    | `distil-medium.en` | faster-whisper model id. |
+| `KURAL_TTS_VOICE`    | `af_sky`           | Kokoro voice id. |
+| `KURAL_AGENT_PROMPT` | _(built-in)_       | System prompt seeded into the LLM context. |
 
-Additional variables for later milestones (LLM/STT/TTS/Twilio) are
+Additional variables for later milestones (Twilio, recording, …) are
 documented in `.env.example`.
 
 ## Development
@@ -152,7 +209,7 @@ Tracked via [bullseye](https://github.com/marcelocantos/bullseye) targets
 in `bullseye.yaml`.
 
 - [x] v0: Echo agent (mic → speaker passthrough)
-- [ ] v0.1: STT → LLM → TTS pipeline with one provider per layer
+- [x] v0.1: STT → LLM → TTS pipeline with one provider per layer
 - [ ] v0.2: Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)
 - [ ] v0.3: Twilio telephony integration
 - [ ] v0.4: Configurable agent personas (system prompt, tools)

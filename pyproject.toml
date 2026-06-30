@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "pipecat-ai[local]>=1.4",
+    "pipecat-ai[local,whisper,kokoro]>=1.4",
     "python-dotenv>=1.0",
     "loguru>=0.7",
 ]
