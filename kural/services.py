@@ -36,9 +36,15 @@ def build_llm(settings: Settings) -> AIService:
 
 
 def build_tts(settings: Settings) -> AIService:
-    """Build the text-to-speech service (Kokoro)."""
-    from pipecat.services.kokoro.tts import KokoroTTSService
+    """Build the text-to-speech service (Piper).
 
-    return KokoroTTSService(
-        settings=KokoroTTSService.Settings(voice=settings.tts_voice),
+    Piper is used as the default local TTS because it ships pure-ABI3
+    wheels that cover Python 3.14; Kokoro (``kokoro-onnx``) currently
+    pins ``<3.14`` and so cannot be installed on this project's target
+    interpreter. Swapping providers is a one-line change here.
+    """
+    from pipecat.services.piper.tts import PiperTTSService
+
+    return PiperTTSService(
+        settings=PiperTTSService.Settings(voice=settings.tts_voice),
     )

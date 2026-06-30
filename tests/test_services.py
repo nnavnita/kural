@@ -62,13 +62,13 @@ def test_build_llm_passes_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_build_tts_uses_voice(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_module = _install_fake_module(monkeypatch, "pipecat.services.kokoro.tts")
-    settings_cls = MagicMock(name="KokoroTTSSettings")
-    service_cls = MagicMock(name="KokoroTTSService")
+    fake_module = _install_fake_module(monkeypatch, "pipecat.services.piper.tts")
+    settings_cls = MagicMock(name="PiperTTSSettings")
+    service_cls = MagicMock(name="PiperTTSService")
     service_cls.Settings = settings_cls
-    fake_module.KokoroTTSService = service_cls  # type: ignore[attr-defined]
+    fake_module.PiperTTSService = service_cls  # type: ignore[attr-defined]
 
-    services.build_tts(make_settings(tts_voice="af_bella"))
+    services.build_tts(make_settings(tts_voice="en_US-ryan-high"))
 
-    settings_cls.assert_called_once_with(voice="af_bella")
+    settings_cls.assert_called_once_with(voice="en_US-ryan-high")
     service_cls.assert_called_once_with(settings=settings_cls.return_value)

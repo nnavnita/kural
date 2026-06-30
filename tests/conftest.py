@@ -32,7 +32,7 @@ def make_settings(
     llm_api_key: str | None = None,
     llm_model: str = "gpt-4o-mini",
     stt_model: str = "distil-medium.en",
-    tts_voice: str = "af_sky",
+    tts_voice: str = "en_US-amy-medium",
     agent_prompt: str = "test prompt",
 ) -> Settings:
     """Build a :class:`Settings` with sensible test defaults."""

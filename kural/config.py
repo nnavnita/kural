@@ -37,7 +37,7 @@ class Settings:
             local providers (Ollama, vLLM) that ignore auth.
         llm_model: Model identifier passed to the LLM provider.
         stt_model: faster-whisper model identifier.
-        tts_voice: Kokoro voice identifier.
+        tts_voice: Piper voice identifier (e.g. ``en_US-amy-medium``).
         agent_prompt: System prompt seeded into the LLM context.
     """
 
@@ -64,7 +64,7 @@ class Settings:
         - ``KURAL_LLM_API_KEY`` (str, optional)
         - ``KURAL_LLM_MODEL`` (str, default ``gpt-4o-mini``)
         - ``KURAL_STT_MODEL`` (str, default ``distil-medium.en``)
-        - ``KURAL_TTS_VOICE`` (str, default ``af_sky``)
+        - ``KURAL_TTS_VOICE`` (str, default ``en_US-amy-medium``)
         - ``KURAL_AGENT_PROMPT`` (str, default friendly assistant prompt)
         """
         load_dotenv()
@@ -76,7 +76,7 @@ class Settings:
             llm_api_key=os.getenv("KURAL_LLM_API_KEY") or None,
             llm_model=os.getenv("KURAL_LLM_MODEL", "gpt-4o-mini"),
             stt_model=os.getenv("KURAL_STT_MODEL", "distil-medium.en"),
-            tts_voice=os.getenv("KURAL_TTS_VOICE", "af_sky"),
+            tts_voice=os.getenv("KURAL_TTS_VOICE", "en_US-amy-medium"),
             agent_prompt=os.getenv("KURAL_AGENT_PROMPT", _DEFAULT_AGENT_PROMPT),
         )
 

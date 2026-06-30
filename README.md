@@ -25,7 +25,7 @@ sane defaults and the freedom to swap any layer.
 - **Bring your own keys.** Plug in OpenAI, OpenRouter, Groq, Ollama, vLLM,
   or any OpenAI-compatible endpoint for the LLM. Same for STT and TTS.
 - **Free path exists.** Run with free-tier models (OpenRouter free
-  models, local Whisper, local Kokoro TTS) and a $1/mo phone number.
+  models, local Whisper, local Piper TTS) and a $1/mo phone number.
 - **Self-hostable.** Single Python process. Deploy on a $5 VPS, your
   laptop, or a container.
 - **Phone-first.** Twilio telephony integration out of the box; browser
@@ -42,7 +42,7 @@ Caller → Twilio (PSTN/SIP) → Media stream
                                   ↓
                               [LLM] OpenAI-compatible (any provider)
                                   ↓
-                              [TTS] Kokoro / Piper / ElevenLabs
+                              [TTS] Piper / Kokoro / ElevenLabs
                                   ↓
                               Audio back to caller
 ```
@@ -57,7 +57,7 @@ kural ships two pipelines, switchable via `KURAL_MODE`:
 **`voice` (default)** — the v0.1 cascade:
 
 ```
-Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Kokoro TTS ─▶ output ─▶ Speakers
+Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Piper TTS ─▶ output ─▶ Speakers
                                        (Silero VAD)                          │
                                                                               ▼
                                                               assistant_aggregator
@@ -100,7 +100,7 @@ Rough budget:
 | VAD endpointing | ~250 ms | Silero start/stop windows |
 | STT (Whisper distil-medium.en) | ~400 ms | Per utterance, batched |
 | LLM (small local model) | ~800 ms | First-token latency dominates |
-| TTS (Kokoro) | ~400 ms | First audio chunk |
+| TTS (Piper) | ~400 ms | First audio chunk |
 | Audio I/O + scheduling | ~150 ms | Buffering, sample-rate conversion |
 
 Swapping the LLM to a hosted provider (OpenAI, Groq) usually shaves
@@ -113,11 +113,11 @@ STT latency at the cost of bringing your own keys.
 |-------|--------------|-------------|
 | LLM   | Ollama, vLLM, OpenRouter free tier | OpenAI, Anthropic (via OpenRouter), Groq, Together |
 | STT   | faster-whisper, Distil-Whisper | Deepgram, AssemblyAI |
-| TTS   | Kokoro, Piper | ElevenLabs, Cartesia |
+| TTS   | Piper, Kokoro | ElevenLabs, Cartesia |
 | Phone | — | Twilio (required for PSTN) |
 
 Cheapest production setup: Twilio number ($1/mo) + OpenRouter free model
-+ local Whisper + local Kokoro = call minutes only.
++ local Whisper + local Piper = call minutes only.
 
 ## Quickstart
 
@@ -149,7 +149,7 @@ export KURAL_LLM_MODEL=llama3.1:8b
 kural                                  # or: python -m kural.server
 ```
 
-Whisper and Kokoro auto-download model weights on first run (~1 GB
+Whisper and Piper auto-download model weights on first run (~1 GB
 total). Wear headphones, speak, hear the reply. Stop with `Ctrl+C`.
 
 To run the v0 echo agent (no API keys, no model downloads):
@@ -171,7 +171,7 @@ KURAL_MODE=echo kural
 | `KURAL_LLM_API_KEY`  | _(unset)_          | API key for the LLM endpoint. |
 | `KURAL_LLM_MODEL`    | `gpt-4o-mini`      | Model identifier passed to the provider. |
 | `KURAL_STT_MODEL`    | `distil-medium.en` | faster-whisper model id. |
-| `KURAL_TTS_VOICE`    | `af_sky`           | Kokoro voice id. |
+| `KURAL_TTS_VOICE`    | `en_US-amy-medium` | Piper voice id (see [piper-tts voices](https://github.com/rhasspy/piper-tts)). |
 | `KURAL_AGENT_PROMPT` | _(built-in)_       | System prompt seeded into the LLM context. |
 
 Additional variables for later milestones (Twilio, recording, …) are

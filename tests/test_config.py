@@ -19,7 +19,7 @@ def test_defaults(clean_env: None) -> None:
     assert s.llm_api_key is None
     assert s.llm_model == "gpt-4o-mini"
     assert s.stt_model == "distil-medium.en"
-    assert s.tts_voice == "af_sky"
+    assert s.tts_voice == "en_US-amy-medium"
     assert "kural" in s.agent_prompt.lower()
 
 
@@ -31,7 +31,7 @@ def test_env_override(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KURAL_LLM_API_KEY", "sk-test")
     monkeypatch.setenv("KURAL_LLM_MODEL", "llama3.1")
     monkeypatch.setenv("KURAL_STT_MODEL", "tiny.en")
-    monkeypatch.setenv("KURAL_TTS_VOICE", "af_bella")
+    monkeypatch.setenv("KURAL_TTS_VOICE", "en_US-ryan-high")
     monkeypatch.setenv("KURAL_AGENT_PROMPT", "Be terse.")
 
     s = Settings.from_env()
@@ -43,7 +43,7 @@ def test_env_override(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.llm_api_key == "sk-test"
     assert s.llm_model == "llama3.1"
     assert s.stt_model == "tiny.en"
-    assert s.tts_voice == "af_bella"
+    assert s.tts_voice == "en_US-ryan-high"
     assert s.agent_prompt == "Be terse."
 
 
