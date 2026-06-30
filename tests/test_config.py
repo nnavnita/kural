@@ -14,6 +14,7 @@ def test_defaults(clean_env: None) -> None:
     s = Settings.from_env()
     assert s.mode == "voice"
     assert s.sample_rate == 16000
+    assert s.output_sample_rate == 24000
     assert s.log_level == "INFO"
     assert s.llm_base_url is None
     assert s.llm_api_key is None
@@ -26,6 +27,7 @@ def test_defaults(clean_env: None) -> None:
 def test_env_override(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KURAL_MODE", "echo")
     monkeypatch.setenv("KURAL_SAMPLE_RATE", "24000")
+    monkeypatch.setenv("KURAL_OUTPUT_SAMPLE_RATE", "48000")
     monkeypatch.setenv("KURAL_LOG_LEVEL", "debug")
     monkeypatch.setenv("KURAL_LLM_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setenv("KURAL_LLM_API_KEY", "sk-test")
@@ -38,6 +40,7 @@ def test_env_override(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert s.mode == "echo"
     assert s.sample_rate == 24000
+    assert s.output_sample_rate == 48000
     assert s.log_level == "DEBUG"
     assert s.llm_base_url == "http://localhost:11434/v1"
     assert s.llm_api_key == "sk-test"

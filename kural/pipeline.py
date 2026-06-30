@@ -38,7 +38,7 @@ def build_local_transport(settings: Settings) -> LocalAudioTransport:
             audio_in_enabled=True,
             audio_out_enabled=True,
             audio_in_sample_rate=settings.sample_rate,
-            audio_out_sample_rate=settings.sample_rate,
+            audio_out_sample_rate=settings.output_sample_rate,
         )
     )
 

@@ -165,7 +165,8 @@ KURAL_MODE=echo kural
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `KURAL_MODE`         | `voice`            | `voice` (STT→LLM→TTS) or `echo` (mic passthrough). |
-| `KURAL_SAMPLE_RATE`  | `16000`            | Audio sample rate (Hz). 16 kHz matches Whisper/Silero. |
+| `KURAL_SAMPLE_RATE`  | `16000`            | Audio **input** rate (Hz). 16 kHz matches Whisper/Silero. |
+| `KURAL_OUTPUT_SAMPLE_RATE` | `24000`       | Audio **output** rate (Hz). Higher than input so TTS playback is less choppy. |
 | `KURAL_LOG_LEVEL`    | `INFO`             | loguru level (`DEBUG`, `INFO`, `WARNING`, ...). |
 | `KURAL_LLM_BASE_URL` | _(OpenAI default)_ | OpenAI-compatible LLM endpoint (Ollama, OpenRouter, vLLM, …). |
 | `KURAL_LLM_API_KEY`  | _(unset)_          | API key for the LLM endpoint. |

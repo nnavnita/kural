@@ -27,8 +27,13 @@ class Settings:
     Attributes:
         mode: Which pipeline to run — ``"echo"`` (v0 passthrough) or
             ``"voice"`` (v0.1 STT → LLM → TTS loop).
-        sample_rate: Sample rate (Hz) used by the local audio transport.
-            16 kHz is the Pipecat default and matches Whisper/Silero.
+        sample_rate: Sample rate (Hz) used by the audio input side of the
+            local transport. 16 kHz is the Pipecat default and matches
+            Whisper/Silero.
+        output_sample_rate: Sample rate (Hz) used by the audio output side
+            of the local transport. Kept separate from the input rate so
+            TTS playback can run at 24 kHz (less choppy than resampling
+            down to 16 kHz) while STT still consumes 16 kHz audio.
         log_level: loguru log level (``DEBUG``, ``INFO``, ``WARNING``, ...).
         llm_base_url: OpenAI-compatible LLM endpoint. ``None`` selects
             the OpenAI default. Point at OpenRouter, Ollama, vLLM, etc.
@@ -43,6 +48,7 @@ class Settings:
 
     mode: AgentMode
     sample_rate: int
+    output_sample_rate: int
     log_level: str
     llm_base_url: str | None
     llm_api_key: str | None
@@ -58,7 +64,9 @@ class Settings:
         Loads ``.env`` if present. Recognised variables:
 
         - ``KURAL_MODE`` (``echo``|``voice``, default ``voice``)
-        - ``KURAL_SAMPLE_RATE`` (int, default ``16000``)
+        - ``KURAL_SAMPLE_RATE`` (int, default ``16000``) — audio input rate.
+        - ``KURAL_OUTPUT_SAMPLE_RATE`` (int, default ``24000``) — audio
+          output rate; matches TTS native rate more closely than 16 kHz.
         - ``KURAL_LOG_LEVEL`` (str, default ``INFO``; upper-cased)
         - ``KURAL_LLM_BASE_URL`` (str, optional)
         - ``KURAL_LLM_API_KEY`` (str, optional)
@@ -71,6 +79,7 @@ class Settings:
         return cls(
             mode=_parse_mode(os.getenv("KURAL_MODE", "voice")),
             sample_rate=int(os.getenv("KURAL_SAMPLE_RATE", "16000")),
+            output_sample_rate=int(os.getenv("KURAL_OUTPUT_SAMPLE_RATE", "24000")),
             log_level=os.getenv("KURAL_LOG_LEVEL", "INFO").upper(),
             llm_base_url=os.getenv("KURAL_LLM_BASE_URL") or None,
             llm_api_key=os.getenv("KURAL_LLM_API_KEY") or None,

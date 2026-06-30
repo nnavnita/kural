@@ -27,6 +27,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def make_settings(
     mode: AgentMode = "echo",
     sample_rate: int = 16000,
+    output_sample_rate: int = 24000,
     log_level: str = "INFO",
     llm_base_url: str | None = None,
     llm_api_key: str | None = None,
@@ -39,6 +40,7 @@ def make_settings(
     return Settings(
         mode=mode,
         sample_rate=sample_rate,
+        output_sample_rate=output_sample_rate,
         log_level=log_level,
         llm_base_url=llm_base_url,
         llm_api_key=llm_api_key,

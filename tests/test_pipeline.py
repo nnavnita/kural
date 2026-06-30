@@ -22,13 +22,13 @@ def test_build_local_transport_uses_settings(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr("kural.pipeline.LocalAudioTransport", fake_transport)
 
-    build_local_transport(make_settings(sample_rate=24000))
+    build_local_transport(make_settings(sample_rate=16000, output_sample_rate=48000))
 
     params = captured["params"]
     assert params.audio_in_enabled is True
     assert params.audio_out_enabled is True
-    assert params.audio_in_sample_rate == 24000
-    assert params.audio_out_sample_rate == 24000
+    assert params.audio_in_sample_rate == 16000
+    assert params.audio_out_sample_rate == 48000
 
 
 def test_build_echo_pipeline_wires_input_echo_output() -> None:
