@@ -8,15 +8,13 @@ version = "0.0.0"
 description = "Open-source voice AI agent framework"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 authors = [{ name = "Navnita" }]
 keywords = ["voice", "ai", "agent", "telephony", "pipecat", "twilio"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Communications :: Telephony",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
@@ -48,7 +46,7 @@ include = ["kural*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]

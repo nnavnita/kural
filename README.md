@@ -1,7 +1,7 @@
 # kural
 
 [![CI](https://github.com/nnavnita/kural/actions/workflows/ci.yml/badge.svg)](https://github.com/nnavnita/kural/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](#quality-gates)
 
@@ -134,7 +134,7 @@ pytest                          # tests + coverage gate
 ## Quality gates
 
 Every change must land via a pull request. CI
-(`.github/workflows/ci.yml`) enforces, on Python 3.10 / 3.11 / 3.12:
+(`.github/workflows/ci.yml`) enforces, on Python 3.14:
 
 - `ruff check .` lint
 - `ruff format --check .` formatting

@@ -28,7 +28,7 @@ short — please read them all before opening a PR.
 
 - `ruff check .` — lint passes
 - `ruff format --check .` — code is formatted
-- `pytest` — all tests pass on Python 3.10, 3.11, 3.12
+- `pytest` — all tests pass on Python 3.14
 - `--cov-fail-under=80` — line coverage stays at or above 80% (configured
   in `pyproject.toml` under `[tool.pytest.ini_options]`)
 
