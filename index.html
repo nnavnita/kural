@@ -9,7 +9,10 @@
 <meta property="og:description" content="Open-source voice AI agent framework. Bring your own keys. Self-hostable.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://nnavnita.github.io/kural/">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗣️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='62%' text-anchor='middle' font-family='Noto Sans Tamil, Latha, sans-serif' font-size='80' fill='%23e94560'>கு</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@500;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -64,9 +67,14 @@
     letter-spacing: 0.04em;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
-  header .brand .glyph { font-size: 1.6rem; }
+  header .brand .glyph {
+    font-family: 'Noto Sans Tamil', 'Latha', sans-serif;
+    font-size: 1.8rem;
+    color: var(--accent);
+    line-height: 1;
+  }
   header nav {
     margin-left: auto;
     display: flex;
@@ -87,9 +95,13 @@
     text-align: center;
   }
   .hero .glyph {
-    font-size: 4rem;
+    font-family: 'Noto Sans Tamil', 'Latha', sans-serif;
+    font-size: 6rem;
+    color: var(--accent);
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
+    line-height: 1;
+    font-weight: 700;
   }
   .hero h1 {
     font-size: clamp(2.4rem, 6vw, 3.6rem);
@@ -276,7 +288,7 @@
 
 <header>
   <div class="brand">
-    <span class="glyph">🗣️</span>
+    <span class="glyph" lang="ta">கு</span>
     <span>kural</span>
   </div>
   <nav>
@@ -290,7 +302,7 @@
 <main>
 
 <div class="hero">
-  <span class="glyph">🗣️</span>
+  <span class="glyph" lang="ta">கு</span>
   <div class="status-row">
     <span class="dot"></span>
     <span>v0 — local echo agent works. Phone integration coming.</span>
