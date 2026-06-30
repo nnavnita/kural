@@ -251,7 +251,26 @@
     text-transform: uppercase;
   }
   .roadmap .done { background: rgba(74, 222, 128, 0.15); color: var(--ok); }
+  .roadmap .wip  { background: rgba(245, 158, 11, 0.18); color: var(--accent-2); }
   .roadmap .todo { background: rgba(138, 138, 168, 0.15); color: var(--muted); }
+  .roadmap .sublist {
+    margin-top: 8px;
+    margin-left: 0;
+    padding-left: 0;
+    list-style: none;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+  .roadmap .sublist li {
+    display: flex;
+    gap: 10px;
+    padding: 4px 0;
+    border: none;
+  }
+  .roadmap .sublist .badge {
+    font-size: 0.65rem;
+    padding: 1px 8px;
+  }
 
   .arch {
     background: var(--code-bg);
@@ -305,7 +324,7 @@
   <span class="glyph" lang="ta">கு</span>
   <div class="status-row">
     <span class="dot"></span>
-    <span>v0.1 — local voice agent (STT → LLM → TTS) works. Phone integration coming.</span>
+    <span>v0.1 ships. v0.2 in progress — provider adapter scaffolding landed, more backends next.</span>
   </div>
   <h1>kural</h1>
   <p class="tagline">Open-source voice AI agent framework.</p>
@@ -345,7 +364,7 @@
                                        (Silero VAD)                          │
                                                                               ▼
                                                               assistant_aggregator</div>
-  <p style="color: var(--muted); margin-top: 14px; font-size: 0.92rem;">Silero VAD decides when the caller stopped speaking. The LLM call uses an OpenAI-compatible endpoint, so any provider (OpenAI, OpenRouter, Ollama, vLLM, …) drops in via env vars.</p>
+  <p style="color: var(--muted); margin-top: 14px; font-size: 0.92rem;">Silero VAD decides when the caller stopped speaking. Each layer is built through a small <code>Adapter</code> Protocol and a registry, so swapping the STT, LLM, or TTS backend is one env var (<code>KURAL_LLM_PROVIDER</code>, <code>KURAL_STT_PROVIDER</code>, <code>KURAL_TTS_PROVIDER</code>). Currently registered: OpenAI-compatible LLM, faster-whisper STT, Piper TTS; more backends land as part of v0.2.</p>
 
   <h2 style="margin-top: 40px;">Latency budget (voice mode)</h2>
   <p style="color: var(--muted); margin-bottom: 16px;">Target on a recent Apple Silicon laptop, all local: <strong>&lt; 2 s</strong> end-to-end (caller stops speaking → first audio of reply).</p>
@@ -428,10 +447,13 @@ kural                                    <span class="c"># or: python -m kural.s
       <tr><td><code>KURAL_MODE</code></td><td class="muted">voice</td><td class="muted">voice (STT→LLM→TTS) or echo (passthrough)</td></tr>
       <tr><td><code>KURAL_SAMPLE_RATE</code></td><td class="muted">16000</td><td class="muted">Audio input rate; 16 kHz matches Whisper/Silero</td></tr>
       <tr><td><code>KURAL_OUTPUT_SAMPLE_RATE</code></td><td class="muted">24000</td><td class="muted">Audio output rate; higher for smoother TTS playback</td></tr>
+      <tr><td><code>KURAL_LLM_PROVIDER</code></td><td class="muted">openai</td><td class="muted">Registry key selecting the LLM adapter</td></tr>
       <tr><td><code>KURAL_LLM_BASE_URL</code></td><td class="muted">OpenAI default</td><td class="muted">OpenAI-compatible endpoint (Ollama, OpenRouter, vLLM, …)</td></tr>
       <tr><td><code>KURAL_LLM_API_KEY</code></td><td class="muted">unset</td><td class="muted">API key for the LLM endpoint</td></tr>
       <tr><td><code>KURAL_LLM_MODEL</code></td><td class="muted">gpt-4o-mini</td><td class="muted">Model identifier passed to the provider</td></tr>
+      <tr><td><code>KURAL_STT_PROVIDER</code></td><td class="muted">whisper</td><td class="muted">Registry key selecting the STT adapter</td></tr>
       <tr><td><code>KURAL_STT_MODEL</code></td><td class="muted">distil-medium.en</td><td class="muted">faster-whisper model id</td></tr>
+      <tr><td><code>KURAL_TTS_PROVIDER</code></td><td class="muted">piper</td><td class="muted">Registry key selecting the TTS adapter</td></tr>
       <tr><td><code>KURAL_TTS_VOICE</code></td><td class="muted">en_US-amy-medium</td><td class="muted">Piper voice id</td></tr>
       <tr><td><code>KURAL_AGENT_PROMPT</code></td><td class="muted">built-in</td><td class="muted">System prompt seeded into the LLM context</td></tr>
       <tr><td><code>KURAL_LOG_LEVEL</code></td><td class="muted">INFO</td><td class="muted">loguru level</td></tr>
@@ -445,7 +467,18 @@ kural                                    <span class="c"># or: python -m kural.s
   <ul class="roadmap">
     <li><span class="badge done">Done</span> <span><strong>v0</strong> — Local echo agent (mic → speaker passthrough)</span></li>
     <li><span class="badge done">Done</span> <span><strong>v0.1</strong> — STT → LLM → TTS pipeline with one provider per layer</span></li>
-    <li><span class="badge todo">Next</span> <span><strong>v0.2</strong> — Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)</span></li>
+    <li>
+      <span class="badge wip">In&nbsp;progress</span>
+      <span>
+        <strong>v0.2</strong> — Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)
+        <ul class="sublist">
+          <li><span class="badge done">Done</span> Adapter Protocols + per-layer registry; env-var provider selection</li>
+          <li><span class="badge todo">Next</span> Deepgram STT adapter + identical-contract test alongside faster-whisper</li>
+          <li><span class="badge todo">Next</span> ElevenLabs + Kokoro TTS adapters + identical-contract test alongside Piper</li>
+          <li><span class="badge todo">Next</span> Docs: README provider matrix + "add a provider" guide</li>
+        </ul>
+      </span>
+    </li>
     <li><span class="badge todo">Planned</span> <span><strong>v0.3</strong> — Twilio telephony integration</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v0.4</strong> — Configurable agent personas (system prompt, tools)</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v1.0</strong> — Production-ready, documented, examples</span></li>
