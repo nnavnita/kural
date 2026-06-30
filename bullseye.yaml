@@ -14,9 +14,10 @@ schema_version: 5
 targets:
   T1:
     name: 'v0: echo agent runs end-to-end'
-    status: identified
+    status: achieved
     value: 5.0
     cost: 3.0
+    actual_cost: 3.0
     acceptance:
     - Caller audio source (local mic or websocket) routed through Pipecat pipeline
     - Audio frames echo back to caller without LLM/STT/TTS in path
@@ -25,6 +26,7 @@ targets:
     context: Smallest demonstrable Pipecat pipeline. Proves frame-processor wiring, audio in/out, and project bootstraps. No external API keys required.
     origin: bullseye_init
     discovered: 2026-06-30
+    achieved: 2026-07-01
   T10:
     name: DTMF keypad input handling
     status: identified
@@ -338,7 +340,7 @@ targets:
     discovered: 2026-06-30
   T29:
     name: marketing site at nnavnita.com/kural, live from day 1, updated each milestone
-    status: identified
+    status: achieved
     value: 0.0
     cost: 0.0
     acceptance:
@@ -352,6 +354,7 @@ targets:
     context: Public-facing front door. Built before v0 ships so the project has a place to point at on day 1. Demo gets realer with each milestone (WebAudio echo → real browser call → callable phone number). Separate from T23 admin dashboard, which stays self-hosted with the Python server.
     origin: manual
     discovered: 2026-06-30
+    achieved: 2026-07-01
   T3:
     name: 'v0.2: pluggable provider adapters for LLM/STT/TTS'
     status: identified
