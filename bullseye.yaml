@@ -183,7 +183,7 @@ targets:
     discovered: 2026-06-30
   T2:
     name: 'v0.1: STT → LLM → TTS pipeline with one provider per layer'
-    status: identified
+    status: achieved
     value: 0.0
     cost: 0.0
     acceptance:
@@ -197,6 +197,7 @@ targets:
     - T1
     origin: manual
     discovered: 2026-06-30
+    achieved: 2026-07-01
   T20:
     name: mobile SDKs (iOS + Android)
     status: identified
@@ -369,9 +370,68 @@ targets:
     - Adding a new provider requires implementing one interface, no core changes
     context: BYOK promise hinges on this. Adapter contracts must be tight enough that swapping providers is one env var.
     depends_on:
-    - T2
+    - T3.1
+    - T3.2
+    - T3.3
+    - T3.4
     origin: manual
     discovered: 2026-06-30
+  T3.1:
+    name: adapter protocols + registry; refactor services.py onto them (no new providers)
+    status: identified
+    value: 0.0
+    cost: 0.0
+    acceptance:
+    - LLMAdapter, STTAdapter, TTSAdapter Protocol/ABC defined in kural/adapters/
+    - Existing OpenAI-compatible LLM, faster-whisper STT, Piper TTS wrapped as adapter classes
+    - 'services.py resolves provider via a registry keyed by KURAL_{LLM,STT,TTS}_PROVIDER env (default: openai/whisper/piper)'
+    - Voice pipeline behaviour unchanged for default env; existing tests pass
+    - Adding a provider = new adapter class + registry entry, no edits to services.py or pipeline.py
+    context: Foundational refactor for T3. Locks the contract so T3.2 (extra STT) and T3.3 (extra TTS) can land independently without touching the core.
+    depends_on:
+    - T2
+    origin: manual
+    discovered: 2026-07-01
+  T3.2:
+    name: 'STT adapter set: add Deepgram alongside faster-whisper + contract test'
+    status: identified
+    value: 0.0
+    cost: 0.0
+    acceptance:
+    - Deepgram STT adapter implemented against STTAdapter protocol
+    - Both adapters pass an identical contract test (mocked, no live API)
+    - KURAL_STT_PROVIDER=deepgram selects it via the registry
+    depends_on:
+    - T3.1
+    origin: manual
+    discovered: 2026-07-01
+  T3.3:
+    name: 'TTS adapter set: add ElevenLabs and Kokoro alongside Piper + contract test'
+    status: identified
+    value: 0.0
+    cost: 0.0
+    acceptance:
+    - ElevenLabs and Kokoro TTS adapters implemented against TTSAdapter protocol
+    - All three TTS adapters pass an identical contract test (mocked, no live API)
+    - KURAL_TTS_PROVIDER selects each via the registry
+    depends_on:
+    - T3.1
+    origin: manual
+    discovered: 2026-07-01
+  T3.4:
+    name: 'docs: README provider matrix reflects implemented adapters; how-to-add-a-provider section'
+    status: identified
+    value: 0.0
+    cost: 0.0
+    acceptance:
+    - README provider matrix lists every implemented adapter
+    - README has a short 'add a provider' guide pointing at the Protocol
+    - Marketing site provider matrix updated to match
+    depends_on:
+    - T3.2
+    - T3.3
+    origin: manual
+    discovered: 2026-07-01
   T4:
     name: 'v0.3: Twilio telephony integration over PSTN'
     status: identified
