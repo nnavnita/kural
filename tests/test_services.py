@@ -1,15 +1,13 @@
-"""Tests for :mod:`kural.services` factories.
+"""Tests for :mod:`kural.services` registry dispatch.
 
-The factories ``import`` the heavyweight Pipecat services lazily inside
-each function so that test code can stub the relevant submodule via
-``sys.modules`` without pulling model weights into memory.
+These tests confirm that ``build_stt``, ``build_llm``, and ``build_tts``
+look up the adapter by name in the matching registry and call its
+``build`` method with the runtime settings. Adapter-internal behaviour
+(which Pipecat class is constructed, with which args) is covered in
+:mod:`tests.test_adapters`.
 """
 
 from __future__ import annotations
-
-import sys
-import types
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,58 +15,57 @@ from kural import services
 from tests.conftest import make_settings
 
 
-def _install_fake_module(monkeypatch: pytest.MonkeyPatch, dotted: str) -> types.ModuleType:
-    module = types.ModuleType(dotted)
-    monkeypatch.setitem(sys.modules, dotted, module)
-    # Ensure parents exist so ``from pkg.sub import X`` works.
-    parts = dotted.split(".")
-    for i in range(1, len(parts)):
-        parent = ".".join(parts[:i])
-        if parent not in sys.modules:
-            monkeypatch.setitem(sys.modules, parent, types.ModuleType(parent))
-    return module
+class _FakeAdapter:
+    """Adapter stub that records the settings it was asked to build with."""
+
+    last_settings = None
+    sentinel = object()
+
+    @classmethod
+    def build(cls, settings):  # type: ignore[no-untyped-def]
+        cls.last_settings = settings
+        return cls.sentinel
 
 
-def test_build_stt_uses_settings_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_module = _install_fake_module(monkeypatch, "pipecat.services.whisper.stt")
-    settings_cls = MagicMock(name="WhisperSTTSettings")
-    service_cls = MagicMock(name="WhisperSTTService")
-    service_cls.Settings = settings_cls
-    fake_module.WhisperSTTService = service_cls  # type: ignore[attr-defined]
-
-    services.build_stt(make_settings(stt_model="tiny.en"))
-
-    settings_cls.assert_called_once_with(model="tiny.en")
-    service_cls.assert_called_once_with(settings=settings_cls.return_value)
+@pytest.fixture
+def fake_registries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace every provider registry with a single ``fake`` entry."""
+    _FakeAdapter.last_settings = None
+    monkeypatch.setattr(services, "LLM_PROVIDERS", {"fake": _FakeAdapter})
+    monkeypatch.setattr(services, "STT_PROVIDERS", {"fake": _FakeAdapter})
+    monkeypatch.setattr(services, "TTS_PROVIDERS", {"fake": _FakeAdapter})
 
 
-def test_build_llm_passes_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_module = _install_fake_module(monkeypatch, "pipecat.services.openai.llm")
-    service_cls = MagicMock(name="OpenAILLMService")
-    fake_module.OpenAILLMService = service_cls  # type: ignore[attr-defined]
-
-    settings = make_settings(
-        llm_model="llama3.1",
-        llm_api_key="sk-test",
-        llm_base_url="http://localhost:11434/v1",
-    )
-    services.build_llm(settings)
-
-    service_cls.assert_called_once_with(
-        model="llama3.1",
-        api_key="sk-test",
-        base_url="http://localhost:11434/v1",
-    )
+def test_build_stt_dispatches_to_registered_adapter(fake_registries: None) -> None:
+    settings = make_settings(stt_provider="fake")
+    assert services.build_stt(settings) is _FakeAdapter.sentinel
+    assert _FakeAdapter.last_settings is settings
 
 
-def test_build_tts_uses_voice(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_module = _install_fake_module(monkeypatch, "pipecat.services.piper.tts")
-    settings_cls = MagicMock(name="PiperTTSSettings")
-    service_cls = MagicMock(name="PiperTTSService")
-    service_cls.Settings = settings_cls
-    fake_module.PiperTTSService = service_cls  # type: ignore[attr-defined]
+def test_build_llm_dispatches_to_registered_adapter(fake_registries: None) -> None:
+    settings = make_settings(llm_provider="fake")
+    assert services.build_llm(settings) is _FakeAdapter.sentinel
+    assert _FakeAdapter.last_settings is settings
 
-    services.build_tts(make_settings(tts_voice="en_US-ryan-high"))
 
-    settings_cls.assert_called_once_with(voice="en_US-ryan-high")
-    service_cls.assert_called_once_with(settings=settings_cls.return_value)
+def test_build_tts_dispatches_to_registered_adapter(fake_registries: None) -> None:
+    settings = make_settings(tts_provider="fake")
+    assert services.build_tts(settings) is _FakeAdapter.sentinel
+    assert _FakeAdapter.last_settings is settings
+
+
+def test_unknown_provider_raises_with_available_names(
+    fake_registries: None,
+) -> None:
+    settings = make_settings(llm_provider="nope")
+    with pytest.raises(ValueError, match="unknown LLM provider 'nope'.*fake"):
+        services.build_llm(settings)
+
+
+def test_unknown_provider_message_handles_empty_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(services, "STT_PROVIDERS", {})
+    settings = make_settings(stt_provider="anything")
+    with pytest.raises(ValueError, match=r"\(none registered\)"):
+        services.build_stt(settings)
