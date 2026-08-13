@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>kural — open-source voice AI agent framework</title>
-<meta name="description" content="Open-source voice AI agent framework. v0.1 local STT → LLM → TTS pipeline works today. Bring your own keys. Self-hostable.">
+<meta name="description" content="Open-source voice AI agent framework. v0.1 local STT → LLM → TTS pipeline works today; v0.3 adds Twilio telephony. Bring your own keys. Self-hostable.">
 <meta property="og:title" content="kural">
-<meta property="og:description" content="Open-source voice AI agent framework. v0.1 local voice pipeline works today. Bring your own keys. Self-hostable.">
+<meta property="og:description" content="Open-source voice AI agent framework. v0.1 local voice pipeline and v0.3 Twilio telephony work today. Bring your own keys. Self-hostable.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://nnavnita.github.io/kural/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='62%' text-anchor='middle' font-family='Noto Sans Tamil, Latha, sans-serif' font-size='80' fill='%23e94560'>கு</text></svg>">
@@ -324,7 +324,7 @@
   <span class="glyph" lang="ta">கு</span>
   <div class="status-row">
     <span class="dot"></span>
-    <span>v0.1 ships. v0.2 in progress — provider adapter scaffolding landed, more backends next.</span>
+    <span>v0.1 ships, v0.3 telephony lands — inbound/outbound calls via Twilio, concurrent, with call history. v0.2 (more STT/TTS backends) still in progress.</span>
   </div>
   <h1>kural</h1>
   <p class="tagline">Open-source voice AI agent framework.</p>
@@ -359,12 +359,20 @@
 
 <section id="how">
   <h2>How it works today</h2>
-  <p style="color: var(--muted); margin-bottom: 20px;">kural ships two pipelines, switchable via <code>KURAL_MODE</code>. <strong>voice</strong> is the v0.1 cascade; <strong>echo</strong> is a transport smoke test.</p>
+  <p style="color: var(--muted); margin-bottom: 20px;">kural ships three modes, switchable via <code>KURAL_MODE</code>. <strong>voice</strong> is the v0.1 cascade; <strong>echo</strong> is a transport smoke test; <strong>telephony</strong> (v0.3) runs the same cascade over real phone calls.</p>
   <div class="arch">Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Piper TTS ─▶ output ─▶ Speakers
                                        (Silero VAD)                          │
                                                                               ▼
                                                               assistant_aggregator</div>
   <p style="color: var(--muted); margin-top: 14px; font-size: 0.92rem;">Silero VAD decides when the caller stopped speaking. Each layer is built through a small <code>Adapter</code> Protocol and a registry, so swapping the STT, LLM, or TTS backend is one env var (<code>KURAL_LLM_PROVIDER</code>, <code>KURAL_STT_PROVIDER</code>, <code>KURAL_TTS_PROVIDER</code>). Currently registered: OpenAI-compatible LLM, faster-whisper STT, Piper TTS; more backends land as part of v0.2.</p>
+
+  <h2 style="margin-top: 40px;">Telephony (v0.3)</h2>
+  <p style="color: var(--muted); margin-bottom: 16px;"><code>KURAL_MODE=telephony</code> runs a FastAPI/uvicorn server instead of a local audio loop. Inbound calls hit a webhook, get bridged onto a Twilio Media Streams WebSocket, and run through the <em>same</em> voice pipeline above — only the transport differs. Each call is its own worker, so multiple calls run concurrently.</p>
+  <div class="arch">                        POST /telephony/voice (webhook)
+Caller ─▶ Twilio ─────────────────────────────────────▶ TwiML &lt;Connect&gt;&lt;Stream&gt;
+                        WS  /telephony/media/{call_sid}
+       ◀──────────────────────────────────────────────▶ voice pipeline (STT → LLM → TTS)</div>
+  <p style="color: var(--muted); margin-top: 14px; font-size: 0.92rem;">Twilio is the first <code>TelephonyAdapter</code> implementation, wired through the same registry pattern as the LLM/STT/TTS layers — Pipecat already ships serializers for Telnyx, Plivo, Exotel, Genesys, and Vonage, so adding another provider is a new adapter class, not a pipeline change. A small REST API (<code>POST /calls/outbound</code>, <code>GET /calls</code>, <code>GET /calls/{sid}</code>) places outbound calls and reads call history from a local SQLite log.</p>
 
   <h2 style="margin-top: 40px;">Latency budget (voice mode)</h2>
   <p style="color: var(--muted); margin-bottom: 16px;">Target on a recent Apple Silicon laptop, all local: <strong>&lt; 2 s</strong> end-to-end (caller stops speaking → first audio of reply).</p>
@@ -403,7 +411,7 @@
       <tr><td>LLM</td><td class="muted">Ollama, vLLM, OpenRouter free tier</td><td class="muted">OpenAI, Anthropic (via OpenRouter), Groq, Together</td></tr>
       <tr><td>STT</td><td class="muted">faster-whisper, Distil-Whisper</td><td class="muted">Deepgram, AssemblyAI</td></tr>
       <tr><td>TTS</td><td class="muted">Piper, Kokoro</td><td class="muted">ElevenLabs, Cartesia</td></tr>
-      <tr><td>Phone</td><td class="muted">—</td><td class="muted">Twilio (required for PSTN)</td></tr>
+      <tr><td>Phone</td><td class="muted">—</td><td class="muted">Twilio (shipped); Telnyx, Plivo, Exotel, Genesys, Vonage adapters possible, not yet built</td></tr>
     </tbody>
   </table>
 </section>
@@ -437,6 +445,21 @@ kural                                    <span class="c"># or: python -m kural.s
   <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Echo mode — transport smoke test, no API keys</h3>
 <pre class="codeblock">KURAL_MODE=echo kural</pre>
 
+  <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Telephony mode — Twilio inbound/outbound calls</h3>
+  <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.95rem;">Needs a publicly reachable URL for Twilio's webhooks — <code>ngrok http 8000</code> works for local dev.</p>
+<pre class="codeblock"><span class="c"># 1. Tunnel a public URL to your machine</span>
+ngrok http 8000
+
+<span class="c"># 2. Configure (or edit .env)</span>
+export KURAL_MODE=telephony
+export KURAL_PUBLIC_BASE_URL=https://your-tunnel.ngrok.app
+export TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export TWILIO_AUTH_TOKEN=your_auth_token
+export TWILIO_PHONE_NUMBER=+15551234567
+
+kural                                    <span class="c"># serves webhook + media stream + REST API on :8000</span></pre>
+  <p style="color: var(--muted); margin-top: 12px; font-size: 0.9rem;">Point the Twilio number's voice webhook at <code>&lt;public-url&gt;/telephony/voice</code>. Place an outbound call with <code>curl -X POST :8000/calls/outbound -d '{"to":"+15557654321"}'</code>; list history with <code>curl :8000/calls</code>.</p>
+
   <h3 style="margin: 28px 0 10px; font-size: 1.05rem; color: var(--accent-2);">Configuration</h3>
   <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.95rem;"><code>Settings.from_env</code> reads:</p>
   <table class="stack">
@@ -444,7 +467,7 @@ kural                                    <span class="c"># or: python -m kural.s
       <tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>KURAL_MODE</code></td><td class="muted">voice</td><td class="muted">voice (STT→LLM→TTS) or echo (passthrough)</td></tr>
+      <tr><td><code>KURAL_MODE</code></td><td class="muted">voice</td><td class="muted">voice (STT→LLM→TTS), echo (passthrough), or telephony (Twilio server)</td></tr>
       <tr><td><code>KURAL_SAMPLE_RATE</code></td><td class="muted">16000</td><td class="muted">Audio input rate; 16 kHz matches Whisper/Silero</td></tr>
       <tr><td><code>KURAL_OUTPUT_SAMPLE_RATE</code></td><td class="muted">24000</td><td class="muted">Audio output rate; higher for smoother TTS playback</td></tr>
       <tr><td><code>KURAL_LLM_PROVIDER</code></td><td class="muted">openai</td><td class="muted">Registry key selecting the LLM adapter</td></tr>
@@ -457,9 +480,14 @@ kural                                    <span class="c"># or: python -m kural.s
       <tr><td><code>KURAL_TTS_VOICE</code></td><td class="muted">en_US-amy-medium</td><td class="muted">Piper voice id</td></tr>
       <tr><td><code>KURAL_AGENT_PROMPT</code></td><td class="muted">built-in</td><td class="muted">System prompt seeded into the LLM context</td></tr>
       <tr><td><code>KURAL_LOG_LEVEL</code></td><td class="muted">INFO</td><td class="muted">loguru level</td></tr>
+      <tr><td><code>KURAL_TELEPHONY_PROVIDER</code></td><td class="muted">twilio</td><td class="muted">Registry key selecting the telephony adapter</td></tr>
+      <tr><td><code>KURAL_PUBLIC_BASE_URL</code></td><td class="muted">unset</td><td class="muted">Publicly reachable URL for Twilio webhooks; required for telephony mode</td></tr>
+      <tr><td><code>TWILIO_ACCOUNT_SID</code> / <code>TWILIO_AUTH_TOKEN</code> / <code>TWILIO_PHONE_NUMBER</code></td><td class="muted">unset</td><td class="muted">Twilio credentials; required for telephony mode</td></tr>
+      <tr><td><code>KURAL_DB_PATH</code></td><td class="muted">kural.db</td><td class="muted">SQLite call log path (telephony mode)</td></tr>
+      <tr><td><code>KURAL_PORT</code></td><td class="muted">8000</td><td class="muted">Bind port for the telephony server</td></tr>
     </tbody>
   </table>
-  <p style="color: var(--muted); margin-top: 16px; font-size: 0.9rem;">Stop the agent with <code>Ctrl+C</code>. See <a href="https://github.com/nnavnita/kural/blob/main/.env.example"><code>.env.example</code></a> for the full list, including placeholders for upcoming Twilio integration.</p>
+  <p style="color: var(--muted); margin-top: 16px; font-size: 0.9rem;">Stop the agent with <code>Ctrl+C</code>. See <a href="https://github.com/nnavnita/kural/blob/main/.env.example"><code>.env.example</code></a> for the full list.</p>
 </section>
 
 <section id="roadmap">
@@ -479,7 +507,7 @@ kural                                    <span class="c"># or: python -m kural.s
         </ul>
       </span>
     </li>
-    <li><span class="badge todo">Planned</span> <span><strong>v0.3</strong> — Twilio telephony integration</span></li>
+    <li><span class="badge done">Done</span> <span><strong>v0.3</strong> — Twilio telephony integration: inbound/outbound calls, concurrent, call history</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v0.4</strong> — Configurable agent personas (system prompt, tools)</span></li>
     <li><span class="badge todo">Planned</span> <span><strong>v1.0</strong> — Production-ready, documented, examples</span></li>
   </ul>
