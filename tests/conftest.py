@@ -38,6 +38,13 @@ def make_settings(
     tts_provider: str = "piper",
     tts_voice: str = "en_US-amy-medium",
     agent_prompt: str = "test prompt",
+    telephony_provider: str = "twilio",
+    twilio_account_sid: str | None = None,
+    twilio_auth_token: str | None = None,
+    twilio_number: str | None = None,
+    public_base_url: str | None = None,
+    db_path: str = "kural.db",
+    port: int = 8000,
 ) -> Settings:
     """Build a :class:`Settings` with sensible test defaults."""
     return Settings(
@@ -54,4 +61,11 @@ def make_settings(
         tts_provider=tts_provider,
         tts_voice=tts_voice,
         agent_prompt=agent_prompt,
+        telephony_provider=telephony_provider,
+        twilio_account_sid=twilio_account_sid,
+        twilio_auth_token=twilio_auth_token,
+        twilio_number=twilio_number,
+        public_base_url=public_base_url,
+        db_path=db_path,
+        port=port,
     )

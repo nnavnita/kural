@@ -12,7 +12,8 @@ speech, and telephony providers of your choice — bring your own keys, run
 for the cost of a phone number.
 
 > **Status:** Early development. v0.1 voice agent (STT → LLM → TTS)
-> works locally; echo agent still available for transport smoke tests.
+> works locally; telephony (inbound/outbound calls via Twilio) is wired
+> up; echo agent still available for transport smoke tests.
 > Star/watch to follow progress.
 
 ## Why kural
@@ -52,7 +53,7 @@ is a swappable frame processor.
 
 ## How it works today
 
-kural ships two pipelines, switchable via `KURAL_MODE`:
+kural ships three modes, switchable via `KURAL_MODE`:
 
 **`voice` (default)** — the v0.1 cascade:
 
@@ -79,6 +80,31 @@ as an output frame so the same bytes can flow to the speaker sink. This
 is the only custom logic in echo mode — everything else is a direct use
 of Pipecat's `LocalAudioTransport` and `WorkerRunner`.
 
+**`telephony`** — runs a FastAPI/uvicorn server instead of a local audio
+loop. Inbound calls hit a webhook, get bridged onto a Twilio Media
+Streams WebSocket, and run through the *same* `build_voice_pipeline` as
+`voice` mode — only the transport differs (`FastAPIWebsocketTransport`
+instead of `LocalAudioTransport`). Each call is its own `PipelineWorker`,
+so multiple calls run concurrently. A small REST API
+(`POST /calls/outbound`, `GET /calls`, `GET /calls/{sid}`) places
+outbound calls and reads call history from a local SQLite log:
+
+```
+                        POST /telephony/voice (webhook)
+Caller ─▶ Twilio ─────────────────────────────────────▶ TwiML <Connect><Stream>
+                        WS  /telephony/media/{call_sid}
+       ◀──────────────────────────────────────────────▶ build_voice_pipeline(...)
+```
+
+The Twilio integration is one `TelephonyAdapter` implementation
+(`kural/adapters/twilio_tel.py`) behind the same registry pattern as the
+LLM/STT/TTS adapters — Pipecat already ships serializers for Telnyx,
+Plivo, Exotel, Genesys, and Vonage, so adding another provider is a new
+adapter class, not a pipeline change. Requires `KURAL_PUBLIC_BASE_URL`
+(a publicly reachable host — `ngrok http 8000` for local dev) plus
+`TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER`. See
+`.env.example`.
+
 Module map:
 
 | File | Purpose |
@@ -87,7 +113,11 @@ Module map:
 | `kural/processors/echo.py` | `EchoProcessor` frame translator |
 | `kural/services.py` | STT / LLM / TTS service factories |
 | `kural/pipeline.py` | `build_local_transport`, `build_echo_pipeline`, `build_voice_pipeline` |
-| `kural/server.py` | `run`, `select_pipeline`, CLI entry (`main`) |
+| `kural/server.py` | `run`, `select_pipeline`, `run_telephony`, CLI entry (`main`) |
+| `kural/adapters/twilio_tel.py` | `TwilioTelephonyAdapter` — webhook, TwiML, media serializer, outbound dial |
+| `kural/telephony/app.py` | FastAPI app: webhook, media-stream WS, outbound/history REST API |
+| `kural/telephony/store.py` | SQLite call log (start/end, history) |
+| `kural/telephony/registry.py` | In-memory active-call tracking |
 
 ### Latency budget (voice mode)
 

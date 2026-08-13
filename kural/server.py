@@ -6,6 +6,10 @@ Picks the pipeline based on :attr:`Settings.mode`:
 * ``voice`` — v0.1 STT → LLM → TTS loop. Defaults: faster-whisper for
   STT, OpenAI-compatible LLM (set ``KURAL_LLM_BASE_URL`` to point at any
   provider), Kokoro for local TTS.
+* ``telephony`` — runs a FastAPI/uvicorn server instead of a local audio
+  loop, handling inbound/outbound calls via the configured telephony
+  provider (see :mod:`kural.telephony.app`). Requires
+  ``KURAL_PUBLIC_BASE_URL`` and provider credentials.
 
 Usage::
 
@@ -44,7 +48,11 @@ def select_pipeline(settings: Settings) -> tuple[Pipeline, str]:
 
 
 async def run(settings: Settings) -> None:
-    """Build the configured pipeline and run it until the worker exits."""
+    """Run the configured mode until it exits (Ctrl+C for local modes)."""
+    if settings.mode == "telephony":
+        await run_telephony(settings)
+        return
+
     pipeline, ready_message = select_pipeline(settings)
 
     runner = WorkerRunner()
@@ -52,6 +60,26 @@ async def run(settings: Settings) -> None:
 
     logger.info(ready_message)
     await runner.run()
+
+
+async def run_telephony(settings: Settings) -> None:
+    """Serve the telephony FastAPI app until interrupted."""
+    import uvicorn
+
+    from kural.telephony.app import create_app
+
+    app = create_app(settings)
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",  # bind all interfaces so Twilio's webhooks can reach this process
+        port=settings.port,
+        log_level=settings.log_level.lower(),
+    )
+    logger.info(
+        f"kural telephony server ready on :{settings.port} "
+        f"(public_base_url={settings.public_base_url})",
+    )
+    await uvicorn.Server(config).serve()
 
 
 def main() -> None:  # pragma: no cover - thin runtime entry

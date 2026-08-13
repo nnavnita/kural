@@ -21,6 +21,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
 )
+from pipecat.transports.base_transport import BaseTransport
 from pipecat.transports.local.audio import LocalAudioTransport, LocalAudioTransportParams
 
 from kural.config import Settings
@@ -49,10 +50,15 @@ def build_echo_pipeline(transport: LocalAudioTransport) -> Pipeline:
 
 
 def build_voice_pipeline(
-    transport: LocalAudioTransport,
+    transport: BaseTransport,
     settings: Settings,
 ) -> tuple[Pipeline, LLMContext]:
     """Wire the v0.1 STT → LLM → TTS voice pipeline.
+
+    Takes any :class:`BaseTransport` — :class:`LocalAudioTransport` for
+    the ``voice`` mode, ``FastAPIWebsocketTransport`` for ``telephony``
+    (see :mod:`kural.telephony.app`) — since the pipeline only calls the
+    common ``input()``/``output()`` interface.
 
     Pipeline order matches the canonical Pipecat cascade:
 

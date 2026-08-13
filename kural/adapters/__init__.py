@@ -10,8 +10,13 @@ entry — :mod:`kural.services` and :mod:`kural.pipeline` are unaware of
 which concrete implementation is wired in.
 """
 
-from kural.adapters.base import LLMAdapter, STTAdapter, TTSAdapter
-from kural.adapters.registry import LLM_PROVIDERS, STT_PROVIDERS, TTS_PROVIDERS
+from kural.adapters.base import LLMAdapter, STTAdapter, TelephonyAdapter, TTSAdapter
+from kural.adapters.registry import (
+    LLM_PROVIDERS,
+    STT_PROVIDERS,
+    TELEPHONY_PROVIDERS,
+    TTS_PROVIDERS,
+)
 
 __all__ = [
     "LLM_PROVIDERS",
@@ -20,4 +25,6 @@ __all__ = [
     "STT_PROVIDERS",
     "TTSAdapter",
     "TTS_PROVIDERS",
+    "TelephonyAdapter",
+    "TELEPHONY_PROVIDERS",
 ]

@@ -12,7 +12,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 
-AgentMode = Literal["echo", "voice"]
+AgentMode = Literal["echo", "voice", "telephony"]
 
 _DEFAULT_AGENT_PROMPT = (
     "You are kural, a concise and friendly voice assistant. "
@@ -53,6 +53,19 @@ class Settings:
             to ``"piper"``.
         tts_voice: Piper voice identifier (e.g. ``en_US-amy-medium``).
         agent_prompt: System prompt seeded into the LLM context.
+        telephony_provider: Registry key selecting the telephony adapter
+            (see :data:`kural.adapters.registry.TELEPHONY_PROVIDERS`).
+            Only used when ``mode == "telephony"``. Defaults to ``"twilio"``.
+        twilio_account_sid: Twilio account SID. Required for telephony mode.
+        twilio_auth_token: Twilio auth token. Required for telephony mode.
+        twilio_number: Twilio phone number used as the outbound caller ID.
+        public_base_url: Publicly reachable base URL (e.g. an ngrok tunnel
+            or a VPS hostname) used to build the webhook/media-stream URLs
+            Twilio calls back into. Required for telephony mode.
+        db_path: SQLite file path for the telephony call log. Only used
+            when ``mode == "telephony"``.
+        port: Port the telephony HTTP/WS server binds to. Only used when
+            ``mode == "telephony"``.
     """
 
     mode: AgentMode
@@ -68,6 +81,13 @@ class Settings:
     tts_provider: str
     tts_voice: str
     agent_prompt: str
+    telephony_provider: str
+    twilio_account_sid: str | None
+    twilio_auth_token: str | None
+    twilio_number: str | None
+    public_base_url: str | None
+    db_path: str
+    port: int
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -89,10 +109,30 @@ class Settings:
         - ``KURAL_TTS_PROVIDER`` (str, default ``piper``) — registry key.
         - ``KURAL_TTS_VOICE`` (str, default ``en_US-amy-medium``)
         - ``KURAL_AGENT_PROMPT`` (str, default friendly assistant prompt)
+        - ``KURAL_TELEPHONY_PROVIDER`` (str, default ``twilio``) — registry key.
+        - ``TWILIO_ACCOUNT_SID`` / ``TWILIO_AUTH_TOKEN`` / ``TWILIO_PHONE_NUMBER``
+          (str, optional; required when ``KURAL_MODE=telephony``)
+        - ``KURAL_PUBLIC_BASE_URL`` (str, optional; required when
+          ``KURAL_MODE=telephony`` — e.g. an ngrok tunnel or VPS hostname)
+        - ``KURAL_DB_PATH`` (str, default ``kural.db``) — SQLite call log.
+        - ``KURAL_PORT`` (int, default ``8000``) — telephony server bind port.
+
+        Raises:
+            ValueError: if ``KURAL_MODE=telephony`` and
+                ``KURAL_PUBLIC_BASE_URL`` is unset — webhook URLs can't be
+                built without it, so this fails fast at startup rather
+                than on the first inbound call.
         """
         load_dotenv()
+        mode = _parse_mode(os.getenv("KURAL_MODE", "voice"))
+        public_base_url = os.getenv("KURAL_PUBLIC_BASE_URL") or None
+        if mode == "telephony" and not public_base_url:
+            raise ValueError(
+                "KURAL_PUBLIC_BASE_URL is required when KURAL_MODE=telephony "
+                "(Twilio needs a publicly reachable URL for webhooks)",
+            )
         return cls(
-            mode=_parse_mode(os.getenv("KURAL_MODE", "voice")),
+            mode=mode,
             sample_rate=int(os.getenv("KURAL_SAMPLE_RATE", "16000")),
             output_sample_rate=int(os.getenv("KURAL_OUTPUT_SAMPLE_RATE", "24000")),
             log_level=os.getenv("KURAL_LOG_LEVEL", "INFO").upper(),
@@ -105,13 +145,20 @@ class Settings:
             tts_provider=os.getenv("KURAL_TTS_PROVIDER", "piper"),
             tts_voice=os.getenv("KURAL_TTS_VOICE", "en_US-amy-medium"),
             agent_prompt=os.getenv("KURAL_AGENT_PROMPT", _DEFAULT_AGENT_PROMPT),
+            telephony_provider=os.getenv("KURAL_TELEPHONY_PROVIDER", "twilio"),
+            twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID") or None,
+            twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN") or None,
+            twilio_number=os.getenv("TWILIO_PHONE_NUMBER") or None,
+            public_base_url=public_base_url,
+            db_path=os.getenv("KURAL_DB_PATH", "kural.db"),
+            port=int(os.getenv("KURAL_PORT", "8000")),
         )
 
 
 def _parse_mode(raw: str) -> AgentMode:
     value = raw.strip().lower()
-    if value not in {"echo", "voice"}:
+    if value not in {"echo", "voice", "telephony"}:
         raise ValueError(
-            f"KURAL_MODE must be 'echo' or 'voice', got {raw!r}",
+            f"KURAL_MODE must be 'echo', 'voice', or 'telephony', got {raw!r}",
         )
     return value  # type: ignore[return-value]
