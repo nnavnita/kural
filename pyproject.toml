@@ -19,7 +19,11 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "pipecat-ai[local,whisper,piper,deepgram,elevenlabs,kokoro]>=1.4",
+    "pipecat-ai[local,whisper,piper,deepgram,elevenlabs]>=1.4",
+    # pipecat's "kokoro" extra pins kokoro-onnx>=0.5.0, but the latest
+    # release on PyPI is 0.4.7 — unsatisfiable, so it's left out of the
+    # base install. KURAL_TTS_PROVIDER=kokoro still works once you
+    # `pip install kokoro-onnx==0.4.7 "pipecat-ai[kokoro]" --no-deps`.
     # pipecat's whisper module imports mlx_whisper unconditionally on Apple
     # Silicon (see pipecat/services/whisper/stt.py), so the package must be
     # present there even when we use the faster-whisper backend, not MLX.

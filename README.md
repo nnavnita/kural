@@ -149,11 +149,17 @@ STT latency at the cost of bringing your own keys.
 |-------|--------------|-------------|
 | LLM   | Ollama, vLLM, OpenRouter free tier | OpenAI, Anthropic (via OpenRouter), Groq, Together |
 | STT   | faster-whisper (shipped) | Deepgram (shipped), AssemblyAI |
-| TTS   | Piper (shipped), Kokoro (shipped) | ElevenLabs (shipped), Cartesia |
+| TTS   | Piper (shipped), Kokoro (shipped, manual install*) | ElevenLabs (shipped), Cartesia |
 | Phone | — | Twilio (shipped) |
 
 Registered adapters live in `kural/adapters/registry.py`; anything else
 in this table is a future milestone, not yet implemented.
+
+\* `pipecat-ai[kokoro]` currently pins `kokoro-onnx>=0.5.0`, which isn't
+published on PyPI yet (latest is `0.4.7`), so it's left out of the base
+install to keep `pip install -e .` resolvable. Run
+`pip install kokoro-onnx==0.4.7 "pipecat-ai[kokoro]" --no-deps` to enable
+`KURAL_TTS_PROVIDER=kokoro`.
 
 Cheapest production setup: Twilio number ($1/mo) + OpenRouter free model
 + local Whisper + local Piper = call minutes only.
