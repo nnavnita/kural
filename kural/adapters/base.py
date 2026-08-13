@@ -15,6 +15,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from fastapi import Request, Response
+    from pipecat.serializers.base_serializer import FrameSerializer
     from pipecat.services.ai_service import AIService
 
     from kural.config import Settings
@@ -48,3 +50,40 @@ class TTSAdapter(Protocol):
 
     @staticmethod
     def build(settings: Settings) -> AIService: ...
+
+
+@runtime_checkable
+class TelephonyAdapter(Protocol):
+    """Bridges a telephony provider's call-media protocol to a Pipecat pipeline.
+
+    Unlike the LLM/STT/TTS adapters (one ``build`` call each), a telephony
+    provider needs to participate in the inbound webhook, the outbound
+    dial, and the per-call media serializer — so the protocol has three
+    methods instead of one.
+    """
+
+    name: ClassVar[str]
+
+    @staticmethod
+    def verify_webhook(request: Request, body: bytes, settings: Settings) -> bool:
+        """Verify an inbound webhook request was sent by the provider."""
+        ...
+
+    @staticmethod
+    def handle_inbound_webhook(request: Request, media_stream_url: str) -> Response:
+        """Build the provider-specific response that accepts the call.
+
+        ``media_stream_url`` is the ``wss://`` URL the provider should
+        open a media-stream WebSocket connection to.
+        """
+        ...
+
+    @staticmethod
+    def build_serializer(call_sid: str, stream_sid: str, settings: Settings) -> FrameSerializer:
+        """Build the Pipecat :class:`FrameSerializer` for one call's media stream."""
+        ...
+
+    @staticmethod
+    def place_outbound_call(to: str, settings: Settings, webhook_url: str) -> str:
+        """Dial ``to`` via the provider's REST API. Returns the provider call ID."""
+        ...

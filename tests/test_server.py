@@ -96,3 +96,13 @@ async def test_run_builds_and_runs_echo_pipeline(
     fake_runtime["echo_factory"].assert_called_once_with(fake_runtime["transport"])
     fake_runtime["worker_cls"].assert_called_once_with(fake_runtime["echo_pipeline"])
     fake_runtime["runner"].run.assert_awaited_once()
+
+
+async def test_run_dispatches_to_telephony_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = make_settings(mode="telephony", public_base_url="https://example.ngrok.app")
+    run_telephony = AsyncMock()
+    monkeypatch.setattr(server, "run_telephony", run_telephony)
+
+    await server.run(settings)
+
+    run_telephony.assert_awaited_once_with(settings)

@@ -25,6 +25,13 @@ def test_defaults(clean_env: None) -> None:
     assert s.tts_provider == "piper"
     assert s.tts_voice == "en_US-amy-medium"
     assert "kural" in s.agent_prompt.lower()
+    assert s.telephony_provider == "twilio"
+    assert s.twilio_account_sid is None
+    assert s.twilio_auth_token is None
+    assert s.twilio_number is None
+    assert s.public_base_url is None
+    assert s.db_path == "kural.db"
+    assert s.port == 8000
 
 
 def test_env_override(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,3 +92,29 @@ def test_empty_llm_credentials_become_none(
     s = Settings.from_env()
     assert s.llm_base_url is None
     assert s.llm_api_key is None
+
+
+def test_telephony_mode_requires_public_base_url(
+    clean_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KURAL_MODE", "telephony")
+    with pytest.raises(ValueError, match="KURAL_PUBLIC_BASE_URL"):
+        Settings.from_env()
+
+
+def test_telephony_mode_with_public_base_url(
+    clean_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KURAL_MODE", "telephony")
+    monkeypatch.setenv("KURAL_PUBLIC_BASE_URL", "https://example.ngrok.app")
+    monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC123")
+    monkeypatch.setenv("TWILIO_AUTH_TOKEN", "secret")
+    monkeypatch.setenv("TWILIO_PHONE_NUMBER", "+15551234567")
+
+    s = Settings.from_env()
+
+    assert s.mode == "telephony"
+    assert s.public_base_url == "https://example.ngrok.app"
+    assert s.twilio_account_sid == "AC123"
+    assert s.twilio_auth_token == "secret"
+    assert s.twilio_number == "+15551234567"

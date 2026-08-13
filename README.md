@@ -12,8 +12,10 @@ speech, and telephony providers of your choice — bring your own keys, run
 for the cost of a phone number.
 
 > **Status:** Early development. v0.1 voice agent (STT → LLM → TTS)
-> works locally; echo agent still available for transport smoke tests.
-> Star/watch to follow progress.
+> works locally; v0.2 adds pluggable provider adapters (Deepgram STT,
+> ElevenLabs/Kokoro TTS); v0.3 telephony (inbound/outbound calls via
+> Twilio) is wired up; echo agent still available for transport smoke
+> tests. Star/watch to follow progress.
 
 ## Why kural
 
@@ -52,7 +54,7 @@ is a swappable frame processor.
 
 ## How it works today
 
-kural ships two pipelines, switchable via `KURAL_MODE`:
+kural ships three modes, switchable via `KURAL_MODE`:
 
 **`voice` (default)** — the v0.1 cascade:
 
@@ -66,6 +68,11 @@ Mic ─▶ input ─▶ Whisper STT ─▶ user_aggregator ─▶ LLM ─▶ Pip
 Silero VAD lives inside the user aggregator and decides when the caller
 has stopped speaking; the LLM uses an OpenAI-compatible endpoint, so any
 provider (OpenAI, OpenRouter, Ollama, vLLM, …) drops in via env vars.
+Each layer (LLM, STT, TTS) is a small `Adapter` Protocol plus a registry
+(`kural/adapters/`) — swapping the backend is one env var
+(`KURAL_LLM_PROVIDER`, `KURAL_STT_PROVIDER`, `KURAL_TTS_PROVIDER`).
+Currently registered: OpenAI-compatible LLM; faster-whisper and Deepgram
+STT; Piper, ElevenLabs, and Kokoro TTS.
 
 **`echo`** — the v0 passthrough used as a transport smoke test:
 
@@ -79,6 +86,31 @@ as an output frame so the same bytes can flow to the speaker sink. This
 is the only custom logic in echo mode — everything else is a direct use
 of Pipecat's `LocalAudioTransport` and `WorkerRunner`.
 
+**`telephony`** — runs a FastAPI/uvicorn server instead of a local audio
+loop. Inbound calls hit a webhook, get bridged onto a Twilio Media
+Streams WebSocket, and run through the *same* `build_voice_pipeline` as
+`voice` mode — only the transport differs (`FastAPIWebsocketTransport`
+instead of `LocalAudioTransport`). Each call is its own `PipelineWorker`,
+so multiple calls run concurrently. A small REST API
+(`POST /calls/outbound`, `GET /calls`, `GET /calls/{sid}`) places
+outbound calls and reads call history from a local SQLite log:
+
+```
+                        POST /telephony/voice (webhook)
+Caller ─▶ Twilio ─────────────────────────────────────▶ TwiML <Connect><Stream>
+                        WS  /telephony/media/{call_sid}
+       ◀──────────────────────────────────────────────▶ build_voice_pipeline(...)
+```
+
+The Twilio integration is one `TelephonyAdapter` implementation
+(`kural/adapters/twilio_tel.py`) behind the same registry pattern as the
+LLM/STT/TTS adapters — Pipecat already ships serializers for Telnyx,
+Plivo, Exotel, Genesys, and Vonage, so adding another provider is a new
+adapter class, not a pipeline change. Requires `KURAL_PUBLIC_BASE_URL`
+(a publicly reachable host — `ngrok http 8000` for local dev) plus
+`TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER`. See
+`.env.example`.
+
 Module map:
 
 | File | Purpose |
@@ -87,7 +119,11 @@ Module map:
 | `kural/processors/echo.py` | `EchoProcessor` frame translator |
 | `kural/services.py` | STT / LLM / TTS service factories |
 | `kural/pipeline.py` | `build_local_transport`, `build_echo_pipeline`, `build_voice_pipeline` |
-| `kural/server.py` | `run`, `select_pipeline`, CLI entry (`main`) |
+| `kural/server.py` | `run`, `select_pipeline`, `run_telephony`, CLI entry (`main`) |
+| `kural/adapters/twilio_tel.py` | `TwilioTelephonyAdapter` — webhook, TwiML, media serializer, outbound dial |
+| `kural/telephony/app.py` | FastAPI app: webhook, media-stream WS, outbound/history REST API |
+| `kural/telephony/store.py` | SQLite call log (start/end, history) |
+| `kural/telephony/registry.py` | In-memory active-call tracking |
 
 ### Latency budget (voice mode)
 
@@ -107,17 +143,73 @@ Swapping the LLM to a hosted provider (OpenAI, Groq) usually shaves
 hundreds of milliseconds off the LLM stage. Cloud STT (Deepgram) reduces
 STT latency at the cost of bringing your own keys.
 
-## Provider matrix (future milestones)
+## Provider matrix
 
 | Layer | Free / local | Paid (BYOK) |
 |-------|--------------|-------------|
 | LLM   | Ollama, vLLM, OpenRouter free tier | OpenAI, Anthropic (via OpenRouter), Groq, Together |
-| STT   | faster-whisper, Distil-Whisper | Deepgram, AssemblyAI |
-| TTS   | Piper, Kokoro | ElevenLabs, Cartesia |
-| Phone | — | Twilio (required for PSTN) |
+| STT   | faster-whisper (shipped) | Deepgram (shipped), AssemblyAI |
+| TTS   | Piper (shipped), Kokoro (shipped, manual install*) | ElevenLabs (shipped), Cartesia |
+| Phone | — | Twilio (shipped) |
+
+Registered adapters live in `kural/adapters/registry.py`; anything else
+in this table is a future milestone, not yet implemented.
+
+\* `pipecat-ai[kokoro]` currently pins `kokoro-onnx>=0.5.0`, which isn't
+published on PyPI yet (latest is `0.4.7`), so it's left out of the base
+install to keep `pip install -e .` resolvable. Run
+`pip install kokoro-onnx==0.4.7 "pipecat-ai[kokoro]" --no-deps` to enable
+`KURAL_TTS_PROVIDER=kokoro`.
 
 Cheapest production setup: Twilio number ($1/mo) + OpenRouter free model
 + local Whisper + local Piper = call minutes only.
+
+## Adding a provider
+
+Adding a provider to an existing layer never touches `services.py` or
+`pipeline.py` — write an adapter class and register it:
+
+1. **Implement the Protocol.** Each layer has a tiny Protocol in
+   `kural/adapters/base.py` (`LLMAdapter`, `STTAdapter`, `TTSAdapter`) —
+   a `name: ClassVar[str]` and a `build(settings: Settings) -> AIService`
+   staticmethod that constructs the Pipecat service. See
+   `kural/adapters/deepgram_stt.py` for a minimal example:
+
+   ```python
+   class DeepgramSTTAdapter:
+       name: ClassVar[str] = "deepgram"
+
+       @staticmethod
+       def build(settings: Settings) -> AIService:
+           from pipecat.services.deepgram.stt import DeepgramSTTService
+
+           return DeepgramSTTService(
+               api_key=settings.deepgram_api_key,
+               settings=DeepgramSTTService.Settings(model=settings.stt_model),
+           )
+   ```
+
+2. **Register it.** Add one line to the matching dict in
+   `kural/adapters/registry.py` (`LLM_PROVIDERS`, `STT_PROVIDERS`, or
+   `TTS_PROVIDERS`), keyed by the adapter's `name`.
+3. **Add config, if the provider needs its own credential.** A new field
+   on `Settings` (`kural/config.py`) plus its env var in `from_env` and
+   `.env.example`. Shared knobs (`stt_model`, `tts_voice`, …) are reused
+   across providers on the same layer — don't add a new one unless the
+   provider genuinely needs its own.
+4. **Add pipecat's extra.** `pipecat-ai[...]` in `pyproject.toml` needs
+   the provider's extra (e.g. `deepgram`, `elevenlabs`) so its SDK
+   installs.
+5. **Write the contract test.** Every adapter on a layer is tested by
+   the same parametrized test (`test_stt_adapter_contract`,
+   `test_tts_adapter_contract` in `tests/test_adapters.py`) — add your
+   adapter to its `parametrize` list. It mocks the Pipecat service
+   module via `sys.modules`, so no live API calls or model downloads
+   happen in CI. Add a build-specific test too if your adapter passes
+   provider-only kwargs (e.g. `api_key`) the contract test doesn't cover.
+
+Selecting the provider at runtime is then just the layer's env var
+(`KURAL_STT_PROVIDER=deepgram`, …) — no code change needed downstream.
 
 ## Quickstart
 
@@ -171,8 +263,10 @@ KURAL_MODE=echo kural
 | `KURAL_LLM_BASE_URL` | _(OpenAI default)_ | OpenAI-compatible LLM endpoint (Ollama, OpenRouter, vLLM, …). |
 | `KURAL_LLM_API_KEY`  | _(unset)_          | API key for the LLM endpoint. |
 | `KURAL_LLM_MODEL`    | `gpt-4o-mini`      | Model identifier passed to the provider. |
-| `KURAL_STT_MODEL`    | `distil-medium.en` | faster-whisper model id. |
-| `KURAL_TTS_VOICE`    | `en_US-amy-medium` | Piper voice id (see [piper-tts voices](https://github.com/rhasspy/piper-tts)). |
+| `KURAL_STT_MODEL`    | `distil-medium.en` | faster-whisper model id, or Deepgram model name (e.g. `nova-3-general`). |
+| `DEEPGRAM_API_KEY`   | _(unset)_          | Deepgram API key. Required when `KURAL_STT_PROVIDER=deepgram`. |
+| `KURAL_TTS_VOICE`    | `en_US-amy-medium` | Piper/Kokoro voice id (see [piper-tts voices](https://github.com/rhasspy/piper-tts)), or an ElevenLabs voice ID. |
+| `ELEVENLABS_API_KEY` | _(unset)_          | ElevenLabs API key. Required when `KURAL_TTS_PROVIDER=elevenlabs`. |
 | `KURAL_AGENT_PROMPT` | _(built-in)_       | System prompt seeded into the LLM context. |
 
 Additional variables for later milestones (Twilio, recording, …) are
@@ -211,8 +305,8 @@ in `bullseye.yaml`.
 
 - [x] v0: Echo agent (mic → speaker passthrough)
 - [x] v0.1: STT → LLM → TTS pipeline with one provider per layer
-- [ ] v0.2: Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)
-- [ ] v0.3: Twilio telephony integration
+- [x] v0.2: Provider adapters (OpenAI-compatible LLM, multiple STT/TTS)
+- [x] v0.3: Twilio telephony integration
 - [ ] v0.4: Configurable agent personas (system prompt, tools)
 - [ ] v1.0: Production-ready, documented, examples
 

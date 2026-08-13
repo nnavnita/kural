@@ -11,9 +11,13 @@ append it here. No edits to :mod:`kural.services` or
 
 from __future__ import annotations
 
-from kural.adapters.base import LLMAdapter, STTAdapter, TTSAdapter
+from kural.adapters.base import LLMAdapter, STTAdapter, TelephonyAdapter, TTSAdapter
+from kural.adapters.deepgram_stt import DeepgramSTTAdapter
+from kural.adapters.elevenlabs_tts import ElevenLabsTTSAdapter
+from kural.adapters.kokoro_tts import KokoroTTSAdapter
 from kural.adapters.openai_llm import OpenAILLMAdapter
 from kural.adapters.piper_tts import PiperTTSAdapter
+from kural.adapters.twilio_tel import TwilioTelephonyAdapter
 from kural.adapters.whisper_stt import WhisperSTTAdapter
 
 LLM_PROVIDERS: dict[str, type[LLMAdapter]] = {
@@ -22,8 +26,15 @@ LLM_PROVIDERS: dict[str, type[LLMAdapter]] = {
 
 STT_PROVIDERS: dict[str, type[STTAdapter]] = {
     WhisperSTTAdapter.name: WhisperSTTAdapter,
+    DeepgramSTTAdapter.name: DeepgramSTTAdapter,
 }
 
 TTS_PROVIDERS: dict[str, type[TTSAdapter]] = {
     PiperTTSAdapter.name: PiperTTSAdapter,
+    ElevenLabsTTSAdapter.name: ElevenLabsTTSAdapter,
+    KokoroTTSAdapter.name: KokoroTTSAdapter,
+}
+
+TELEPHONY_PROVIDERS: dict[str, type[TelephonyAdapter]] = {
+    TwilioTelephonyAdapter.name: TwilioTelephonyAdapter,
 }
