@@ -47,11 +47,18 @@ class Settings:
         stt_provider: Registry key selecting the STT adapter to build
             (see :data:`kural.adapters.registry.STT_PROVIDERS`). Defaults
             to ``"whisper"`` (faster-whisper).
-        stt_model: faster-whisper model identifier.
+        stt_model: Model identifier passed to the STT provider (faster-whisper
+            model id, or Deepgram model name when ``stt_provider="deepgram"``).
+        deepgram_api_key: Deepgram API key. Required when
+            ``stt_provider="deepgram"``.
         tts_provider: Registry key selecting the TTS adapter to build
             (see :data:`kural.adapters.registry.TTS_PROVIDERS`). Defaults
             to ``"piper"``.
-        tts_voice: Piper voice identifier (e.g. ``en_US-amy-medium``).
+        tts_voice: Voice identifier passed to the TTS provider (Piper voice
+            id, ElevenLabs voice id, or Kokoro voice name, depending on
+            ``tts_provider``).
+        elevenlabs_api_key: ElevenLabs API key. Required when
+            ``tts_provider="elevenlabs"``.
         agent_prompt: System prompt seeded into the LLM context.
         telephony_provider: Registry key selecting the telephony adapter
             (see :data:`kural.adapters.registry.TELEPHONY_PROVIDERS`).
@@ -78,8 +85,10 @@ class Settings:
     llm_model: str
     stt_provider: str
     stt_model: str
+    deepgram_api_key: str | None
     tts_provider: str
     tts_voice: str
+    elevenlabs_api_key: str | None
     agent_prompt: str
     telephony_provider: str
     twilio_account_sid: str | None
@@ -106,8 +115,12 @@ class Settings:
         - ``KURAL_LLM_MODEL`` (str, default ``gpt-4o-mini``)
         - ``KURAL_STT_PROVIDER`` (str, default ``whisper``) — registry key.
         - ``KURAL_STT_MODEL`` (str, default ``distil-medium.en``)
+        - ``DEEPGRAM_API_KEY`` (str, optional; required when
+          ``KURAL_STT_PROVIDER=deepgram``)
         - ``KURAL_TTS_PROVIDER`` (str, default ``piper``) — registry key.
         - ``KURAL_TTS_VOICE`` (str, default ``en_US-amy-medium``)
+        - ``ELEVENLABS_API_KEY`` (str, optional; required when
+          ``KURAL_TTS_PROVIDER=elevenlabs``)
         - ``KURAL_AGENT_PROMPT`` (str, default friendly assistant prompt)
         - ``KURAL_TELEPHONY_PROVIDER`` (str, default ``twilio``) — registry key.
         - ``TWILIO_ACCOUNT_SID`` / ``TWILIO_AUTH_TOKEN`` / ``TWILIO_PHONE_NUMBER``
@@ -142,8 +155,10 @@ class Settings:
             llm_model=os.getenv("KURAL_LLM_MODEL", "gpt-4o-mini"),
             stt_provider=os.getenv("KURAL_STT_PROVIDER", "whisper"),
             stt_model=os.getenv("KURAL_STT_MODEL", "distil-medium.en"),
+            deepgram_api_key=os.getenv("DEEPGRAM_API_KEY") or None,
             tts_provider=os.getenv("KURAL_TTS_PROVIDER", "piper"),
             tts_voice=os.getenv("KURAL_TTS_VOICE", "en_US-amy-medium"),
+            elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY") or None,
             agent_prompt=os.getenv("KURAL_AGENT_PROMPT", _DEFAULT_AGENT_PROMPT),
             telephony_provider=os.getenv("KURAL_TELEPHONY_PROVIDER", "twilio"),
             twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID") or None,
