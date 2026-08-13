@@ -80,9 +80,7 @@ def test_voice_webhook_accepts_valid_signature_and_logs_call(
     assert record.to_number == "+15557654321"
 
 
-def test_voice_webhook_rejects_bad_signature(
-    client: TestClient, fake_adapter: MagicMock
-) -> None:
+def test_voice_webhook_rejects_bad_signature(client: TestClient, fake_adapter: MagicMock) -> None:
     fake_adapter.verify_webhook.return_value = False
 
     response = client.post("/telephony/voice", data=_twilio_form())
@@ -119,9 +117,7 @@ def test_outbound_call_rejects_bad_e164(client: TestClient) -> None:
     assert response.status_code == 400
 
 
-def test_outbound_call_places_call_and_logs_it(
-    client: TestClient, fake_adapter: MagicMock
-) -> None:
+def test_outbound_call_places_call_and_logs_it(client: TestClient, fake_adapter: MagicMock) -> None:
     response = client.post("/calls/outbound", json={"to": "+15551234567"})
 
     assert response.status_code == 200
@@ -197,9 +193,7 @@ def test_media_stream_runs_pipeline_and_records_call_end(
     fake_runner.run = AsyncMock()
     fake_runner.add_workers = AsyncMock()
     fake_runner.end = AsyncMock()
-    monkeypatch.setattr(
-        "pipecat.workers.runner.WorkerRunner", MagicMock(return_value=fake_runner)
-    )
+    monkeypatch.setattr("pipecat.workers.runner.WorkerRunner", MagicMock(return_value=fake_runner))
 
     settings = make_settings(
         mode="telephony",
@@ -218,9 +212,7 @@ def test_media_stream_runs_pipeline_and_records_call_end(
         with client.websocket_connect("/telephony/media") as ws:
             ws.send_text(json.dumps({"event": "connected"}))
             ws.send_text(
-                json.dumps(
-                    {"event": "start", "start": {"streamSid": "MZ1", "callSid": "CA-WS-1"}}
-                )
+                json.dumps({"event": "start", "start": {"streamSid": "MZ1", "callSid": "CA-WS-1"}})
             )
             # The server-side handler runs on a background thread with no
             # synchronization point exposed back to the test client, so poll

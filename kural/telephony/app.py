@@ -39,8 +39,7 @@ def _resolve_adapter(settings: Settings) -> type[TelephonyAdapter]:
     except KeyError as err:
         available = ", ".join(sorted(TELEPHONY_PROVIDERS)) or "(none registered)"
         raise ValueError(
-            f"unknown telephony provider {settings.telephony_provider!r}; "
-            f"registered: {available}",
+            f"unknown telephony provider {settings.telephony_provider!r}; registered: {available}",
         ) from err
 
 

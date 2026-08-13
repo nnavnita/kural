@@ -47,9 +47,7 @@ def test_verify_webhook_delegates_to_request_validator(
     request.headers = {"X-Twilio-Signature": "sig123"}
     request.url = "https://example.com/telephony/voice"
 
-    result = TwilioTelephonyAdapter.verify_webhook(
-        request, b"CallSid=CA123&From=%2B1555", settings
-    )
+    result = TwilioTelephonyAdapter.verify_webhook(request, b"CallSid=CA123&From=%2B1555", settings)
 
     assert result is True
     validator_cls.assert_called_once_with("secret")
